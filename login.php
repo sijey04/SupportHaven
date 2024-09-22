@@ -177,7 +177,7 @@ if (!isset($_SESSION['csrf_token'])) {
 <body>
     <div class="container login-container">
         <div class="text-center mb-4">
-            <a href="index.php"><img src="images/logo.png" alt="SupportHaven Logo" class="logo"></a>
+            <a href="index.html"><img src="images/logo.png" alt="SupportHaven Logo" class="logo"></a>
         </div>
         <div class="card">
             <div class="card-body p-4">

@@ -41,38 +41,69 @@
 
     // Process form submission
     if (isset($_POST['submit'])) {
-        $serviceCategory = isset($_POST['serviceCategory']) ? $_POST['serviceCategory'] : '';
-        $serviceName = isset($_POST['serviceName']) ? $_POST['serviceName'] : '';
+        $serviceId = isset($_POST['serviceName']) ? $_POST['serviceName'] : '';
         $date = isset($_POST['date']) ? $_POST['date'] : '';
         $time = isset($_POST['time']) ? $_POST['time'] : '';
         $location = isset($_POST['location']) ? $_POST['location'] : '';
         $paymentMethod = isset($_POST['paymentMethod']) ? $_POST['paymentMethod'] : '';
+        $totalCost = isset($_POST['totalCost']) ? $_POST['totalCost'] : '0.00';
+        $technicianName = isset($_POST['technician']) ? $_POST['technician'] : '';
+
+        // Fetch technician_id based on the technician's name
+        $technicianQuery = "SELECT t.user_id 
+                            FROM technicians t
+                            JOIN users u ON t.user_id = u.id
+                            WHERE CONCAT(u.firstName, ' ', u.lastName) = :technician_name";
+        $technicianStmt = $db->prepare($technicianQuery);
+        $technicianStmt->bindParam(":technician_name", $technicianName);
+        $technicianStmt->execute();
+        $technicianResult = $technicianStmt->fetch(PDO::FETCH_ASSOC);
+        $technicianId = $technicianResult ? $technicianResult['user_id'] : null;
 
         // Insert booking into database
-        $query = "INSERT INTO bookings (user_id, service_category, service_name, booking_date, booking_time, location, payment_method) VALUES (:user_id, :service_category, :service_name, :booking_date, :booking_time, :location, :payment_method)";
+        $query = "INSERT INTO bookings (user_id, service_id, technician_id, booking_date, booking_time, location, payment_method, total_cost) 
+                  VALUES (:user_id, :service_id, :technician_id, :booking_date, :booking_time, :location, :payment_method, :total_cost)";
         $stmt = $db->prepare($query);
         $stmt->bindParam(":user_id", $user_id);
-        $stmt->bindParam(":service_category", $serviceCategory);
-        $stmt->bindParam(":service_name", $serviceName);
+        $stmt->bindParam(":service_id", $serviceId);
+        $stmt->bindParam(":technician_id", $technicianId);
         $stmt->bindParam(":booking_date", $date);
         $stmt->bindParam(":booking_time", $time);
         $stmt->bindParam(":location", $location);
         $stmt->bindParam(":payment_method", $paymentMethod);
-        $stmt->execute();
+        $stmt->bindParam(":total_cost", $totalCost);
 
-        // Redirect to a success page or display a success message
-        header("Location: booking-success.php");
-        exit();
+        try {
+            $stmt->execute();
+            // Redirect to a success page or display a success message
+            header("Location: booking-success.php");
+            exit();
+        } catch (PDOException $e) {
+            // Log the error and display a user-friendly message
+            error_log("Booking error: " . $e->getMessage());
+            $error_message = "An error occurred while processing your booking. Please try again later.";
+        }
     }
 
     // Fetch technicians from the database
-    $query = "SELECT * FROM technician_applications WHERE photo IS NOT NULL";
+    $query = "SELECT t.*, u.firstName, u.lastName 
+              FROM technicians t
+              JOIN users u ON t.user_id = u.id
+              WHERE t.photo IS NOT NULL AND t.status = 'approved'";
     $stmt = $db->prepare($query);
     $stmt->execute();
     $technicians = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Fetch categories from the database
+    $query = "SELECT * FROM categories";
+    $stmt = $db->prepare($query);
+    $stmt->execute();
+    $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
     // Fetch services from the database
-    $query = "SELECT * FROM services";
+    $query = "SELECT s.*, c.name as category_name 
+              FROM services s
+              JOIN categories c ON s.category_id = c.id";
     $stmt = $db->prepare($query);
     $stmt->execute();
     $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -106,7 +137,7 @@
                             <span class="icon-bar"></span>
                             <span class="icon-bar"></span>
                         </button>
-                        <a class="navbar-brand" href="index.php"><img src="images/logo.png" alt="logo"></a>
+                        <a class="navbar-brand" href="index.html"><img src="images/logo.png" alt="logo"></a>
                     </div>
                     
                     <div class="collapse navbar-collapse navbar-right">
@@ -122,28 +153,39 @@
             <h1 class="text-3xl font-bold text-center mb-10 mt-10">Book a Tech Service</h1>
             <p class="text-center mb-6">Welcome, <?php echo htmlspecialchars($fullName); ?>!</p>
 
+            <?php if (isset($error_message)): ?>
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                    <strong class="font-bold">Error!</strong>
+                    <span class="block sm:inline"><?php echo $error_message; ?></span>
+                </div>
+            <?php endif; ?>
+
             <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
                 <!-- Service Selection -->
                 <div class="bg-white shadow-md rounded-lg p-6 mb-8">
                     <h2 class="text-xl font-semibold mb-4">Step 1: Select Service</h2>
+                    <p class="mb-4">Choose the category and specific service you need assistance with. Our range of services covers various tech-related issues and support.</p>
                     <div class="mb-4">
                         <label for="serviceCategory" class="block text-sm font-medium text-gray-700 mb-1">Service Category</label>
                         <select id="serviceCategory" name="serviceCategory" class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                            <option selected>Select a category</option>
-                            <option value="1">Computer Repair</option>
-                            <option value="2">Network Setup</option>
-                            <option value="3">Software Installation</option>
+                            <option value="">Select a category</option>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?php echo htmlspecialchars($category['id']); ?>"><?php echo htmlspecialchars($category['name']); ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="mb-4">
                         <label for="serviceName" class="block text-sm font-medium text-gray-700 mb-1">Service Name</label>
                         <select id="serviceName" name="serviceName" class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                            <option selected>Select a service</option>
+                            <option value="">Select a service</option>
                             <?php foreach ($services as $service): ?>
-                                <option value="<?php echo htmlspecialchars($service['id']); ?>"><?php echo htmlspecialchars($service['name']); ?></option>
+                                <option value="<?php echo htmlspecialchars($service['id']); ?>" data-category="<?php echo htmlspecialchars($service['category_id']); ?>" data-price="<?php echo htmlspecialchars($service['price']); ?>" data-description="<?php echo htmlspecialchars($service['description']); ?>">
+                                    <?php echo htmlspecialchars($service['name']); ?> - ₱<?php echo htmlspecialchars($service['price']); ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    <div id="serviceDescription" class="mt-4 text-gray-600"></div>
                 </div>
 
                 <!-- Technician Availability -->
@@ -175,12 +217,12 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <?php foreach ($technicians as $tech): ?>
                         <div class="bg-white shadow-sm rounded-lg overflow-hidden">
-                            <img src="uploads/<?php echo htmlspecialchars($tech['photo']); ?>" alt="<?php echo htmlspecialchars($tech['firstName'] . ' ' . $tech['lastName']); ?>" class="w-full object-cover">
+                            <img src="uploads/<?php echo htmlspecialchars($tech['photo'] ?? 'default.jpg'); ?>" alt="<?php echo htmlspecialchars($tech['firstName'] ?? '') . ' ' . htmlspecialchars($tech['lastName'] ?? ''); ?>" class="w-full h-[500px] object-cover">
                             <div class="p-4 text-center">
-                                <h3 class="font-semibold text-lg mb-2"><?php echo htmlspecialchars($tech['firstName'] . ' ' . $tech['lastName']); ?></h3>
-                                <p class="text-gray-600 mb-2">Specializes in <?php echo htmlspecialchars($tech['expertise']); ?></p>
-                                <p class="text-gray-600 mb-4">Experience: <?php echo htmlspecialchars($tech['experience']); ?> years</p>
-                                <button type="button" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition duration-300" onclick="selectTechnician('<?php echo htmlspecialchars($tech['firstName'] . ' ' . $tech['lastName']); ?>')">Select</button>
+                                <h3 class="font-semibold text-lg mb-2"><?php echo htmlspecialchars($tech['firstName'] ?? 'Unknown') . ' ' . htmlspecialchars($tech['lastName'] ?? 'Technician'); ?></h3>
+                                <p class="text-gray-600 mb-2">Specializes in <?php echo htmlspecialchars($tech['expertise'] ?? 'Various Services'); ?></p>
+                                <p class="text-gray-600 mb-4">Experience: <?php echo htmlspecialchars($tech['experience'] ?? 'N/A'); ?> years</p>
+                                <button type="button" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition duration-300" onclick="selectTechnician('<?php echo htmlspecialchars($tech['firstName'] ?? 'Unknown') . ' ' . htmlspecialchars($tech['lastName'] ?? 'Technician'); ?>')">Select</button>
                             </div>
                         </div>
                         <?php endforeach; ?>
@@ -194,10 +236,11 @@
                     <div class="mb-4">
                         <p><strong>Service Category:</strong> <span id="summaryServiceCategory"></span></p>
                         <p><strong>Service:</strong> <span id="summaryServiceName"></span></p>
+                        <p><strong>Service Description:</strong> <span id="summaryServiceDescription"></span></p>
                         <p><strong>Technician:</strong> <span id="summaryTechnician"></span></p>
                         <p><strong>Date & Time:</strong> <span id="summaryDateTime"></span></p>
                         <p><strong>Location:</strong> <span id="summaryLocation"></span></p>
-                        <p><strong>Total Cost:</strong> $<span id="summaryTotalCost">0.00</span></p>
+                        <p><strong>Total Cost:</strong> ₱<span id="summaryTotalCost">0.00</span></p>
                     </div>
                     <div class="mb-4">
                         <label for="paymentMethod" class="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
@@ -231,12 +274,40 @@
                 if (event.target.id === 'serviceCategory') {
                     document.getElementById('summaryServiceCategory').textContent = event.target.options[event.target.selectedIndex].text;
                 } else if (event.target.id === 'serviceName') {
-                    document.getElementById('summaryServiceName').textContent = event.target.options[event.target.selectedIndex].text;
+                    const selectedOption = event.target.options[event.target.selectedIndex];
+                    document.getElementById('summaryServiceName').textContent = selectedOption.text;
+                    document.getElementById('summaryServiceDescription').textContent = selectedOption.dataset.description || 'No description available';
+                    document.getElementById('serviceDescription').textContent = selectedOption.dataset.description || 'No description available';
                 } else if (event.target.id === 'date' || event.target.id === 'time') {
                     document.getElementById('summaryDateTime').textContent = document.getElementById('date').value + ', ' + document.getElementById('time').value;
                 } else if (event.target.id === 'location') {
                     document.getElementById('summaryLocation').textContent = event.target.value;
                 }
+            });
+
+            document.addEventListener('DOMContentLoaded', function() {
+                const serviceCategorySelect = document.getElementById('serviceCategory');
+                const serviceNameSelect = document.getElementById('serviceName');
+                const serviceOptions = Array.from(serviceNameSelect.options);
+
+                serviceCategorySelect.addEventListener('change', function() {
+                    const selectedCategoryId = this.value;
+                    serviceNameSelect.innerHTML = '<option value="">Select a service</option>';
+
+                    serviceOptions.forEach(option => {
+                        if (option.dataset.category === selectedCategoryId || selectedCategoryId === '') {
+                            serviceNameSelect.appendChild(option.cloneNode(true));
+                        }
+                    });
+                });
+
+                serviceNameSelect.addEventListener('change', function() {
+                    const selectedOption = this.options[this.selectedIndex];
+                    const price = selectedOption.dataset.price || '0.00';
+                    document.getElementById('summaryTotalCost').textContent = price;
+                    document.getElementById('summaryServiceDescription').textContent = selectedOption.dataset.description || 'No description available';
+                    document.getElementById('serviceDescription').textContent = selectedOption.dataset.description || 'No description available';
+                });
             });
         </script>
     </body>

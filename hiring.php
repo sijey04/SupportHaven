@@ -142,7 +142,7 @@
     <header>
         <div class="container">
             <nav>
-                <a href="index.php" class="logo">
+                <a href="index.html" class="logo">
                     <img src="images/logo.png" alt="SupportHaven Logo">
                 </a>
                 <ul>

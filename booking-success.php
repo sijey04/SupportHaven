@@ -12,8 +12,29 @@ if (!isset($_SESSION['user_id'])) {
 $database = new Connection();
 $db = $database->getConnection();
 
-// Fetch user details
+// Fetch the latest booking for the user
 $user_id = $_SESSION['user_id'];
+$query = "SELECT b.*, s.name AS service_name, c.name AS category_name, 
+                 CONCAT(u.firstName, ' ', u.lastName) AS technician_name
+          FROM bookings b
+          JOIN services s ON b.service_id = s.id
+          JOIN categories c ON s.category_id = c.id
+          LEFT JOIN users u ON b.technician_id = u.id
+          WHERE b.user_id = :user_id
+          ORDER BY b.created_at DESC
+          LIMIT 1";
+
+$stmt = $db->prepare($query);
+$stmt->bindParam(":user_id", $user_id);
+$stmt->execute();
+$booking = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$booking) {
+    // Handle the case where no booking is found
+    $error_message = "No booking found. Please try again.";
+}
+
+// Fetch user details
 $query = "SELECT * FROM users WHERE id = :user_id";
 $stmt = $db->prepare($query);
 $stmt->bindParam(":user_id", $user_id);
@@ -28,13 +49,6 @@ $fullName = trim($firstName . ' ' . $lastName);
 if (empty($fullName)) {
     $fullName = isset($user['email']) ? $user['email'] : 'Guest';
 }
-
-// Fetch the latest booking details
-$query = "SELECT * FROM bookings WHERE user_id = :user_id ORDER BY id DESC LIMIT 1";
-$stmt = $db->prepare($query);
-$stmt->bindParam(":user_id", $user_id);
-$stmt->execute();
-$booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
 ?>
 
@@ -89,31 +103,38 @@ $booking = $stmt->fetch(PDO::FETCH_ASSOC);
             <p class="text-xl mt-2">Your booking has been confirmed.</p>
         </div>
 
-        <?php if ($booking): ?>
-        <div class="bg-gray-100 p-6 rounded-lg mb-8 shadow-inner">
-            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Booking Details</h2>
-            <div class="grid grid-cols-2 gap-4">
-                <p class="text-gray-700"><strong>Service Category:</strong></p>
-                <p><?php echo htmlspecialchars($booking['service_category']); ?></p>
-                <p class="text-gray-700"><strong>Service:</strong></p>
-                <p><?php echo htmlspecialchars($booking['service_name']); ?></p>
-                <p class="text-gray-700"><strong>Date:</strong></p>
-                <p><?php echo htmlspecialchars($booking['booking_date']); ?></p>
-                <p class="text-gray-700"><strong>Time:</strong></p>
-                <p><?php echo htmlspecialchars($booking['booking_time']); ?></p>
-                <p class="text-gray-700"><strong>Location:</strong></p>
-                <p><?php echo htmlspecialchars($booking['location']); ?></p>
-                <p class="text-gray-700"><strong>Technician:</strong></p>
-                <p><?php echo isset($booking['technician']) ? htmlspecialchars($booking['technician']) : 'Not assigned'; ?></p>
-                <p class="text-gray-700"><strong>Payment Method:</strong></p>
-                <p><?php echo htmlspecialchars($booking['payment_method']); ?></p>
+        <?php if (isset($error_message)): ?>
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <strong class="font-bold">Error!</strong>
+                <span class="block sm:inline"><?php echo $error_message; ?></span>
             </div>
-        </div>
+        <?php else: ?>
+            <div class="bg-white shadow-md rounded-lg p-6 mb-8">
+                <h2 class="text-xl font-semibold mb-4">Thank you for your booking, <?php echo htmlspecialchars($fullName); ?>!</h2>
+                <p class="mb-4">Your booking has been confirmed. Here are the details:</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <p><strong>Booking ID:</strong> <?php echo htmlspecialchars($booking['id']); ?></p>
+                        <p><strong>Service Category:</strong> <?php echo htmlspecialchars($booking['category_name']); ?></p>
+                        <p><strong>Service:</strong> <?php echo htmlspecialchars($booking['service_name']); ?></p>
+                        <p><strong>Technician:</strong> <?php echo htmlspecialchars($booking['technician_name'] ?? 'Not assigned'); ?></p>
+                    </div>
+                    <div>
+                        <p><strong>Date:</strong> <?php echo htmlspecialchars($booking['booking_date']); ?></p>
+                        <p><strong>Time:</strong> <?php echo htmlspecialchars($booking['booking_time']); ?></p>
+                        <p><strong>Location:</strong> <?php echo htmlspecialchars($booking['location']); ?></p>
+                        <p><strong>Total Cost:</strong> ₱<?php echo htmlspecialchars($booking['total_cost']); ?></p>
+                    </div>
+                </div>
+                
+                <p class="mt-4">We've sent a confirmation email with these details to your registered email address.</p>
+            </div>
+            
+            <div class="text-center">
+                <a href="index.php" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition duration-300">Return to Home</a>
+            </div>
         <?php endif; ?>
-
-        <div class="text-center">
-            <a href="index.php" class="bg-blue-500 text-white py-3 px-6 rounded-full hover:bg-blue-600 transition duration-300 inline-block text-lg font-semibold">Return to Home</a>
-        </div>
     </main>
             <br>
             <br>

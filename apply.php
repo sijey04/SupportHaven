@@ -35,30 +35,45 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             // Upload file to server
             if(move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)){
-                // Insert application into database
-                $query = "INSERT INTO technician_applications (firstName, lastName, email, phone, expertise, experience, photo, password) 
-                          VALUES (:firstName, :lastName, :email, :phone, :expertise, :experience, :photo, :password)";
-                $stmt = $db->prepare($query);
-                $stmt->bindParam(":firstName", $firstName);
-                $stmt->bindParam(":lastName", $lastName);
-                $stmt->bindParam(":email", $email);
-                $stmt->bindParam(":phone", $phone);
-                $stmt->bindParam(":expertise", $expertise);
-                $stmt->bindParam(":experience", $experience);
-                $stmt->bindParam(":photo", $fileName);
-                $stmt->bindParam(":password", $password);
-                
+                // Start transaction
+                $db->beginTransaction();
+
                 try {
-                    if ($stmt->execute()) {
-                        $successMessage = "Your application has been submitted successfully!";
-                    } else {
-                        $errorMessage = "There was an error submitting your application. Please try again.";
-                    }
+                    // Insert into users table first
+                    $userQuery = "INSERT INTO users (firstname, lastname, email, password, user_role_id) 
+                                  VALUES (:firstName, :lastName, :email, :password, 
+                                         (SELECT id FROM user_roles WHERE role_name = 'technician'))";
+                    $userStmt = $db->prepare($userQuery);
+                    $userStmt->bindParam(":firstName", $firstName);
+                    $userStmt->bindParam(":lastName", $lastName);
+                    $userStmt->bindParam(":email", $email);
+                    $userStmt->bindParam(":password", $password);
+                    $userStmt->execute();
+
+                    $userId = $db->lastInsertId();
+
+                    // Insert application into technicians table
+                    $techQuery = "INSERT INTO technicians (user_id, phone, expertise, experience, photo, status) 
+                                  VALUES (:userId, :phone, :expertise, :experience, :photo, 'pending')";
+                    $techStmt = $db->prepare($techQuery);
+                    $techStmt->bindParam(":userId", $userId);
+                    $techStmt->bindParam(":phone", $phone);
+                    $techStmt->bindParam(":expertise", $expertise);
+                    $techStmt->bindParam(":experience", $experience);
+                    $techStmt->bindParam(":photo", $fileName);
+                    
+                    $techStmt->execute();
+
+                    // Commit the transaction
+                    $db->commit();
+                    $successMessage = "Your application has been submitted successfully!";
                 } catch (PDOException $e) {
+                    // Rollback the transaction on error
+                    $db->rollBack();
                     $errorMessage = "Database error: " . $e->getMessage();
                 }
             } else {
-                $errorMessage = "Sorry, there was an error uploading your file. Please check the directory permissions.";
+                $errorMessage = "Sorry, there was an error uploading your file.";
             }
         } else {
             $errorMessage = "Sorry, only JPG, JPEG, PNG, & GIF files are allowed to upload.";
@@ -119,7 +134,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </head>
 <body>
     <div class="logo-container">
-        <a href="index.php">
+        <a href="index.html">
             <img src="images/logo.png" alt="SupportHaven Logo">
         </a>
     </div>
@@ -164,7 +179,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="form-group">
                 <label for="experience">Years of Experience</label>
                 <input type="number" class="form-control" id="experience" name="experience" min="0" required>
-
             </div>
             <div class="form-group">
                 <label for="password">Password</label>

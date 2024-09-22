@@ -13,7 +13,7 @@ $db = $database->getConnection();
 
 // Function to fetch all technicians
 function getAllTechnicians($db) {
-    $query = "SELECT t.id, u.firstName, u.lastName, u.email, t.expertise, t.experience, t.photo
+    $query = "SELECT t.id, u.firstName, u.lastName, u.email, t.expertise, t.experience, t.photo, t.status, t.phone
               FROM technicians t 
               JOIN users u ON t.user_id = u.id";
     $stmt = $db->prepare($query);
@@ -21,19 +21,9 @@ function getAllTechnicians($db) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Function to fetch all technician applications
-function getAllTechnicianApplications($db) {
-    $query = "SELECT id, firstName, lastName, email, expertise, experience, photo, status
-              FROM technician_applications
-              WHERE status = 'pending'";
-    $stmt = $db->prepare($query);
-    $stmt->execute();
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
 // Function to get technician by ID
 function getTechnicianById($db, $id) {
-    $query = "SELECT t.id, u.firstName, u.lastName, u.email, t.expertise, t.experience, t.photo
+    $query = "SELECT t.id, u.firstName, u.lastName, u.email, t.expertise, t.experience, t.photo, t.status, t.phone
               FROM technicians t 
               JOIN users u ON t.user_id = u.id 
               WHERE t.id = :id";
@@ -45,55 +35,47 @@ function getTechnicianById($db, $id) {
 
 // Function to add new technician
 function addTechnician($db, $technicianData) {
-    // ... existing code ...
-    if ($result) {
+    $db->beginTransaction();
+    try {
+        // Insert into users table
+        $userQuery = "INSERT INTO users (firstName, lastName, email, password, user_role_id) 
+                      VALUES (:firstName, :lastName, :email, :password, 
+                             (SELECT id FROM user_roles WHERE role_name = 'technician'))";
+        $userStmt = $db->prepare($userQuery);
+        $userStmt->bindParam(":firstName", $technicianData['firstName']);
+        $userStmt->bindParam(":lastName", $technicianData['lastName']);
+        $userStmt->bindParam(":email", $technicianData['email']);
+        $userStmt->bindParam(":password", password_hash($technicianData['password'], PASSWORD_DEFAULT));
+        $userStmt->execute();
+
         $userId = $db->lastInsertId();
-        $techQuery = "INSERT INTO technicians (user_id, expertise, experience, photo) VALUES (:user_id, :expertise, :experience, :photo)";
+
+        // Insert into technicians table
+        $techQuery = "INSERT INTO technicians (user_id, phone, expertise, experience, photo, status) 
+                      VALUES (:userId, :phone, :expertise, :experience, :photo, 'pending')";
         $techStmt = $db->prepare($techQuery);
-        $photoPath = "/SupportHavenBeta/uploads/" . $technicianData['photo'];
-        return $techStmt->execute([
-            ':user_id' => $userId,
-            ':expertise' => $technicianData['expertise'],
-            ':experience' => $technicianData['experience'],
-            ':photo' => $photoPath
-        ]);
+        $techStmt->bindParam(":userId", $userId);
+        $techStmt->bindParam(":phone", $technicianData['phone']);
+        $techStmt->bindParam(":expertise", $technicianData['expertise']);
+        $techStmt->bindParam(":experience", $technicianData['experience']);
+        $techStmt->bindParam(":photo", "/uploads/" . $technicianData['photo']);
+        $techStmt->execute();
+
+        $db->commit();
+        return true;
+    } catch (Exception $e) {
+        $db->rollBack();
+        return false;
     }
-    // ... existing code ...
 }
 
-// ... existing code ...
-
-// Initialize $action variable
-$action = isset($_GET['action']) ? $_GET['action'] : 'list';
-
-switch ($action) {
-    case 'add':
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $technicianData = [
-                'firstName' => $_POST['firstName'],
-                'lastName' => $_POST['lastName'],
-                'email' => $_POST['email'],
-                'password' => $_POST['password'],
-                'expertise' => $_POST['expertise'],
-                'experience' => $_POST['experience'],
-                'photo' => $_FILES['photo']['name']
-            ];
-            if (addTechnician($db, $technicianData)) {
-                $uploadFile = $_FILES['photo']['tmp_name'];
-                $destination = "../uploads/" . $_FILES['photo']['name'];
-                move_uploaded_file($uploadFile, $destination);
-                header("Location: technician-management.php");
-                exit();
-            }
-        }
-        break;
-    }
-// ... rest of the code ...
+// Function to update technician
 function updateTechnician($db, $technicianData) {
     $query = "UPDATE users u
               JOIN technicians t ON u.id = t.user_id
               SET u.firstName = :firstName, u.lastName = :lastName, u.email = :email,
-                  t.expertise = :expertise, t.experience = :experience, t.photo = :photo
+                  t.expertise = :expertise, t.experience = :experience, t.photo = :photo,
+                  t.phone = :phone, t.status = :status
               WHERE t.id = :id";
     $stmt = $db->prepare($query);
     $stmt->bindParam(':firstName', $technicianData['firstName']);
@@ -101,11 +83,13 @@ function updateTechnician($db, $technicianData) {
     $stmt->bindParam(':email', $technicianData['email']);
     $stmt->bindParam(':expertise', $technicianData['expertise']);
     $stmt->bindParam(':experience', $technicianData['experience']);
-    $stmt->bindParam(':photo', "/SupportHavenBeta/uploads/" . $technicianData['photo']);
+    $photo = "/uploads/" . $technicianData['photo'];
+    $stmt->bindParam(':photo', $photo);
+    $stmt->bindParam(':phone', $technicianData['phone']);
+    $stmt->bindParam(':status', $technicianData['status']);
     $stmt->bindParam(':id', $technicianData['id']);
     return $stmt->execute();
 }
-
 
 // Function to delete technician
 function deleteTechnician($db, $id) {
@@ -117,73 +101,25 @@ function deleteTechnician($db, $id) {
     return $stmt->execute();
 }
 
-// Function to accept technician application
-function acceptTechnicianApplication($db, $id, $password) {
-    $query = "SELECT * FROM technician_applications WHERE id = :id";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(':id', $id);
-    $stmt->execute();
-    $application = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($application) {
-        $db->beginTransaction();
-        try {
-            // Insert into users table
-            $userQuery = "INSERT INTO users (firstName, lastName, email, password, role) VALUES (:firstName, :lastName, :email, :password, 'technician')";
-            $userStmt = $db->prepare($userQuery);
-            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-            $userStmt->execute([
-                ':firstName' => $application['firstName'],
-                ':lastName' => $application['lastName'],
-                ':email' => $application['email'],
-                ':password' => $hashedPassword
-            ]);
-            $userId = $db->lastInsertId();
-
-            // Insert into technicians table
-            $techQuery = "INSERT INTO technicians (user_id, expertise, experience, photo) VALUES (:user_id, :expertise, :experience, :photo)";
-            $techStmt = $db->prepare($techQuery);
-            $techStmt->execute([
-                ':user_id' => $userId,
-                ':expertise' => $application['expertise'],
-                ':experience' => $application['experience'],
-                ':photo' => "/SupportHavenBeta/uploads/" . $application['photo']
-            ]);
-
-            // Delete from technician_applications
-            $deleteQuery = "DELETE FROM technician_applications WHERE id = :id";
-            $deleteStmt = $db->prepare($deleteQuery);
-            $deleteStmt->execute([':id' => $id]);
-
-            $db->commit();
-            return true;
-        } catch (Exception $e) {
-            $db->rollBack();
-            return false;
-        }
-    }
-
-    return false;
-}
-
-// Function to decline technician application
-function declineTechnicianApplication($db, $id) {
-    $query = "DELETE FROM technician_applications WHERE id = :id";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(':id', $id);
-    return $stmt->execute();
-}
-
 $action = isset($_GET['action']) ? $_GET['action'] : 'list';
 $technicianId = isset($_GET['id']) ? $_GET['id'] : null;
 
 switch ($action) {
     case 'add':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // ... existing code ...
+            $technicianData = [
+                'firstName' => $_POST['firstName'],
+                'lastName' => $_POST['lastName'],
+                'email' => $_POST['email'],
+                'password' => $_POST['password'],
+                'phone' => $_POST['phone'],
+                'expertise' => $_POST['expertise'],
+                'experience' => $_POST['experience'],
+                'photo' => $_FILES['photo']['name']
+            ];
             if (addTechnician($db, $technicianData)) {
                 $uploadFile = $_FILES['photo']['tmp_name'];
-                $destination = $_SERVER['DOCUMENT_ROOT'] . "/SupportHavenBeta/uploads/" . $_FILES['photo']['name'];
+                $destination = $_SERVER['DOCUMENT_ROOT'] . "/uploads/" . $_FILES['photo']['name'];
                 move_uploaded_file($uploadFile, $destination);
                 header("Location: technician-management.php");
                 exit();
@@ -192,11 +128,21 @@ switch ($action) {
         break;
     case 'edit':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // ... existing code ...
+            $technicianData = [
+                'id' => $technicianId,
+                'firstName' => $_POST['firstName'],
+                'lastName' => $_POST['lastName'],
+                'email' => $_POST['email'],
+                'phone' => $_POST['phone'],
+                'expertise' => $_POST['expertise'],
+                'experience' => $_POST['experience'],
+                'status' => $_POST['status'],
+                'photo' => isset($_FILES['photo']['name']) && $_FILES['photo']['name'] ? $_FILES['photo']['name'] : $_POST['current_photo']
+            ];
             if (updateTechnician($db, $technicianData)) {
                 if ($_FILES['photo']['name']) {
                     $uploadFile = $_FILES['photo']['tmp_name'];
-                    $destination = $_SERVER['DOCUMENT_ROOT'] . "/SupportHavenBeta/uploads/" . $_FILES['photo']['name'];
+                    $destination = $_SERVER['DOCUMENT_ROOT'] . "/uploads/" . $_FILES['photo']['name'];
                     move_uploaded_file($uploadFile, $destination);
                 }
                 header("Location: technician-management.php");
@@ -215,24 +161,8 @@ switch ($action) {
     case 'view':
         $technician = getTechnicianById($db, $technicianId);
         break;
-    case 'accept':
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $password = $_POST['password'];
-            if (acceptTechnicianApplication($db, $technicianId, $password)) {
-                header("Location: technician-management.php");
-                exit();
-            }
-        }
-        break;
-    case 'decline':
-        if (declineTechnicianApplication($db, $technicianId)) {
-            header("Location: technician-management.php");
-            exit();
-        }
-        break;
     default:
         $technicians = getAllTechnicians($db);
-        $applications = getAllTechnicianApplications($db);
         break;
 }
 
@@ -255,9 +185,9 @@ if (isset($_SESSION['user_id'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SupportHaven Technician Management</title>
+    <title>Technician Management - SupportHaven Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -302,12 +232,6 @@ if (isset($_SESSION['user_id'])) {
             max-width: 150px;
             height: auto;
         }
-        .technician-avatar {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
         @media (max-width: 767.98px) {
             .sidebar {
                 position: fixed;
@@ -340,7 +264,7 @@ if (isset($_SESSION['user_id'])) {
                 <div class="position-sticky">
                     <div class="text-center mb-4">
                         <img src="../images/logo.png" alt="SupportHaven Logo" class="admin-logo mb-3">
-                        <h4>Admin Panel</h4>
+                        <h4 class="text-white">Admin Panel</h4>
                     </div>
                     <ul class="nav flex-column">
                         <li class="nav-item">
@@ -395,8 +319,10 @@ if (isset($_SESSION['user_id'])) {
                                             <th>ID</th>
                                             <th>Name</th>
                                             <th>Email</th>
+                                            <th>Phone</th>
                                             <th>Expertise</th>
                                             <th>Experience</th>
+                                            <th>Status</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -409,8 +335,10 @@ if (isset($_SESSION['user_id'])) {
                                             <td><?php echo htmlspecialchars($technician['id']); ?></td>
                                             <td><?php echo htmlspecialchars($technician['firstName'] . ' ' . $technician['lastName']); ?></td>
                                             <td><?php echo htmlspecialchars($technician['email']); ?></td>
+                                            <td><?php echo htmlspecialchars($technician['phone']); ?></td>
                                             <td><?php echo htmlspecialchars($technician['expertise']); ?></td>
                                             <td><?php echo htmlspecialchars($technician['experience']); ?> years</td>
+                                            <td><?php echo htmlspecialchars($technician['status']); ?></td>
                                             <td>
                                                 <a href="?action=view&id=<?php echo $technician['id']; ?>" class="btn btn-sm btn-info"><i class="fas fa-eye"></i></a>
                                                 <a href="?action=edit&id=<?php echo $technician['id']; ?>" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
@@ -423,74 +351,6 @@ if (isset($_SESSION['user_id'])) {
                             </div>
                         </div>
                     </div>
-
-                    <div class="card mb-4">
-                        <div class="card-header bg-light">
-                            <h2 class="mb-0"><i class="fas fa-user-plus me-2"></i>Technician Applications</h2>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Photo</th>
-                                            <th>ID</th>
-                                            <th>Name</th>
-                                            <th>Email</th>
-                                            <th>Expertise</th>
-                                            <th>Experience</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($applications as $application): ?>
-                                        <tr>
-                                            <td>
-                                                <img src="<?php echo htmlspecialchars($application['photo']); ?>" alt="<?php echo htmlspecialchars($application['firstName'] . ' ' . $application['lastName']); ?>" class="technician-avatar">
-                                            </td>
-                                            <td><?php echo htmlspecialchars($application['id']); ?></td>
-                                            <td><?php echo htmlspecialchars($application['firstName'] . ' ' . $application['lastName']); ?></td>
-                                            <td><?php echo htmlspecialchars($application['email']); ?></td>
-                                            <td><?php echo htmlspecialchars($application['expertise']); ?></td>
-                                            <td><?php echo htmlspecialchars($application['experience']); ?> years</td>
-                                            <td>
-                                                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#acceptModal<?php echo $application['id']; ?>"><i class="fas fa-check"></i> Accept</button>
-                                                <a href="?action=decline&id=<?php echo $application['id']; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to decline this application?');"><i class="fas fa-times"></i> Decline</a>
-                                            </td>
-                                        </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Accept Modals -->
-                    <?php foreach ($applications as $application): ?>
-                    <div class="modal fade" id="acceptModal<?php echo $application['id']; ?>" tabindex="-1" aria-labelledby="acceptModalLabel<?php echo $application['id']; ?>" aria-hidden="true">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="acceptModalLabel<?php echo $application['id']; ?>">Accept Application</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <form action="?action=accept&id=<?php echo $application['id']; ?>" method="post">
-                                    <div class="modal-body">
-                                        <p>Please set a password for the new technician account:</p>
-                                        <div class="mb-3">
-                                            <label for="password<?php echo $application['id']; ?>" class="form-label">Password</label>
-                                            <input type="password" class="form-control" id="password<?php echo $application['id']; ?>" name="password" required>
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                        <button type="submit" class="btn btn-primary">Accept and Set Password</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
                 <?php elseif ($action === 'add' || $action === 'edit'): ?>
                     <div class="card mb-4">
                         <div class="card-header bg-light">
@@ -510,6 +370,10 @@ if (isset($_SESSION['user_id'])) {
                                     <label for="email" class="form-label">Email</label>
                                     <input type="email" class="form-control" id="email" name="email" value="<?php echo $action === 'edit' && isset($technician['email']) ? htmlspecialchars($technician['email']) : ''; ?>" required>
                                 </div>
+                                <div class="mb-3">
+                                    <label for="phone" class="form-label">Phone</label>
+                                    <input type="tel" class="form-control" id="phone" name="phone" value="<?php echo $action === 'edit' && isset($technician['phone']) ? htmlspecialchars($technician['phone']) : ''; ?>" required>
+                                </div>
                                 <?php if ($action === 'add'): ?>
                                 <div class="mb-3">
                                     <label for="password" class="form-label">Password</label>
@@ -524,9 +388,23 @@ if (isset($_SESSION['user_id'])) {
                                     <label for="experience" class="form-label">Experience (years)</label>
                                     <input type="number" class="form-control" id="experience" name="experience" value="<?php echo $action === 'edit' && isset($technician['experience']) ? htmlspecialchars($technician['experience']) : ''; ?>" required>
                                 </div>
+                                <?php if ($action === 'edit'): ?>
+                                <div class="mb-3">
+                                    <label for="status" class="form-label">Status</label>
+                                    <select class="form-control" id="status" name="status" required>
+                                        <option value="pending" <?php echo $technician['status'] === 'pending' ? 'selected' : ''; ?>>Pending</option>
+                                        <option value="approved" <?php echo $technician['status'] === 'approved' ? 'selected' : ''; ?>>Approved</option>
+                                        <option value="declined" <?php echo $technician['status'] === 'declined' ? 'selected' : ''; ?>>Declined</option>
+                                    </select>
+                                </div>
+                                <?php endif; ?>
                                 <div class="mb-3">
                                     <label for="photo" class="form-label">Photo</label>
                                     <input type="file" class="form-control" id="photo" name="photo" accept="image/*">
+                                    <?php if ($action === 'edit' && isset($technician['photo'])): ?>
+                                        <input type="hidden" name="current_photo" value="<?php echo htmlspecialchars($technician['photo']); ?>">
+                                        <img src="<?php echo htmlspecialchars($technician['photo']); ?>" alt="Current Photo" class="mt-2" style="max-width: 100px;">
+                                    <?php endif; ?>
                                 </div>
                                 <button type="submit" class="btn btn-primary"><?php echo $action === 'add' ? 'Add Technician' : 'Update Technician'; ?></button>
                                 <a href="?action=list" class="btn btn-secondary">Cancel</a>
@@ -554,11 +432,17 @@ if (isset($_SESSION['user_id'])) {
                                         <dt class="col-sm-3">Email</dt>
                                         <dd class="col-sm-9"><?php echo htmlspecialchars($technician['email']); ?></dd>
 
+                                        <dt class="col-sm-3">Phone</dt>
+                                        <dd class="col-sm-9"><?php echo htmlspecialchars($technician['phone']); ?></dd>
+
                                         <dt class="col-sm-3">Expertise</dt>
                                         <dd class="col-sm-9"><?php echo htmlspecialchars($technician['expertise']); ?></dd>
 
                                         <dt class="col-sm-3">Experience</dt>
                                         <dd class="col-sm-9"><?php echo htmlspecialchars($technician['experience']); ?> years</dd>
+
+                                        <dt class="col-sm-3">Status</dt>
+                                        <dd class="col-sm-9"><?php echo htmlspecialchars($technician['status']); ?></dd>
                                     </dl>
                                 </div>
                             </div>
