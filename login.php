@@ -22,6 +22,7 @@ if (!$db) {
     die("Connection failed: " . $database->getError());
 }
 
+
 // Implement login attempt limiting
 $max_attempts = 5;
 $lockout_time = 900; // 15 minutes
@@ -63,7 +64,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 } elseif ($_SESSION['user_role'] == 'admin') {
                     $redirect_url = 'admin/admin.php';
                 } else {
-                    $redirect_url = 'booking.php';
+                    $redirect_url = 'user-landing.php';
                 }
 
                 // Add this line to check if the header is sent
@@ -99,7 +100,7 @@ if (isset($_SESSION['user_id'])) {
     } elseif ($_SESSION['user_role'] == 'admin') {
         $redirect_url = 'admin/admin.php';
     } else {
-        $redirect_url = 'booking.php';
+        $redirect_url = 'user-landing.php';
     }
     // Add this line to check if the header is sent
     if (headers_sent()) {
@@ -172,6 +173,13 @@ if (!isset($_SESSION['csrf_token'])) {
         .divider::after {
             margin-left: .25em;
         }
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -192,8 +200,11 @@ if (!isset($_SESSION['csrf_token'])) {
                     <div class="mb-3">
                         <input type="email" name="email" class="form-control" placeholder="Email" required>
                     </div>
-                    <div class="mb-3">
-                        <input type="password" name="password" class="form-control" placeholder="Password" required>
+                    <div class="mb-3 position-relative">
+                        <input type="password" name="password" id="password" class="form-control" placeholder="Password" required>
+                        <span class="password-toggle" onclick="togglePassword()">
+                            <i class="fa fa-eye" id="toggleIcon"></i>
+                        </span>
                     </div>
                     <div class="mb-3">
                         <a href="#" class="text-decoration-none">Forgot password?</a>
@@ -207,8 +218,8 @@ if (!isset($_SESSION['csrf_token'])) {
                     <a href="/auth/google" class="btn btn-outline-secondary" onclick="signInWithGoogle()">
                         <i class="fa fa-google me-2"></i> Sign in with Google
                     </a>
-                    <a href="/auth/apple" class="btn btn-outline-secondary" onclick="signInWithApple()">
-                        <i class="fa fa-apple me-2"></i> Sign in with Apple
+                    <a href="/auth/facebook" class="btn btn-outline-secondary" onclick="signInWithFacebook()">
+                        <i class="fa fa-facebook me-2"></i> Sign in with Facebook
                     </a>
                 </div>
             </div>
@@ -220,8 +231,21 @@ if (!isset($_SESSION['csrf_token'])) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js"></script>
     <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('toggleIcon');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        }
+
         function signInWithGoogle() {
             google.accounts.id.initialize({
                 client_id: 'YOUR_GOOGLE_CLIENT_ID',
@@ -252,41 +276,12 @@ if (!isset($_SESSION['csrf_token'])) {
             });
         }
 
-        function signInWithApple() {
-            AppleID.auth.init({
-                clientId : 'YOUR_APPLE_CLIENT_ID',
-                scope : 'name email',
-                redirectURI: 'https://your-redirect-uri.com/auth/apple/callback',
-                state : 'origin:web',
-                usePopup : true
-            });
-
-            AppleID.auth.signIn()
-                .then(function(response) {
-                    // Send the authorization code to your server
-                    fetch('/auth/apple', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-Token': '<?php echo $_SESSION['csrf_token']; ?>'
-                        },
-                        body: JSON.stringify({ code: response.authorization.code }),
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        // Handle the server response
-                        console.log('Success:', data);
-                        // Redirect based on user role
-                        window.location.href = data.redirect_url;
-                    })
-                    .catch((error) => {
-                        console.error('Error:', error);
-                    });
-                })
-                .catch(function(error) {
-                    console.error('Apple Sign-In Error:', error);
-                });
+        function signInWithFacebook() {
+            // Implement Facebook sign-in logic here
+            console.log('Facebook Sign-In clicked');
         }
     </script>
 </body>
 </html>
+```
+</rewritten_file>

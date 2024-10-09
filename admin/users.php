@@ -153,7 +153,32 @@ switch ($action) {
         $user = getUserById($db, $userId);
         break;
     default:
-        $users = getAllUsers($db);
+        $search = isset($_GET['search']) ? $_GET['search'] : '';
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $perPage = 10;
+
+        $query = "SELECT u.id, u.firstName, u.lastName, u.email, u.user_role_id, ur.role_name 
+                  FROM users u 
+                  LEFT JOIN user_roles ur ON u.user_role_id = ur.id
+                  WHERE u.firstName LIKE :search OR u.lastName LIKE :search OR u.email LIKE :search";
+
+        $countQuery = "SELECT COUNT(*) FROM users u
+                       WHERE u.firstName LIKE :search OR u.lastName LIKE :search OR u.email LIKE :search";
+
+        $stmt = $db->prepare($countQuery);
+        $stmt->execute([':search' => "%$search%"]);
+        $totalUsers = $stmt->fetchColumn();
+
+        $totalPages = ceil($totalUsers / $perPage);
+        $offset = ($page - 1) * $perPage;
+
+        $query .= " LIMIT :offset, :perPage";
+        $stmt = $db->prepare($query);
+        $stmt->bindValue(':search', "%$search%", PDO::PARAM_STR);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->bindValue(':perPage', $perPage, PDO::PARAM_INT);
+        $stmt->execute();
+        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         break;
 }
 
@@ -263,10 +288,10 @@ if (isset($_SESSION['user_id'])) {
                             <a class="nav-link" href="technician-management.php"><i class="fas fa-user-tie me-2"></i>Technician Management</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fas fa-calendar-check me-2"></i>Booking Management</a>
+                            <a class="nav-link" href="booking-management.php"><i class="fas fa-calendar-check me-2"></i>Booking Management</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fas fa-cogs me-2"></i>Service Management</a>
+                            <a class="nav-link" href="service-management.php"><i class="fas fa-cogs me-2"></i>Service Management</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#"><i class="fas fa-chart-bar me-2"></i>Reports and Analytics</a>

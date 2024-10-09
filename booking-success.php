@@ -14,7 +14,7 @@ $db = $database->getConnection();
 
 // Fetch the latest booking for the user
 $user_id = $_SESSION['user_id'];
-$query = "SELECT b.*, s.name AS service_name, c.name AS category_name, 
+$query = "SELECT b.*, s.name AS service_name, s.price AS service_price, c.name AS category_name, 
                  CONCAT(u.firstName, ' ', u.lastName) AS technician_name
           FROM bookings b
           JOIN services s ON b.service_id = s.id
@@ -32,6 +32,9 @@ $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$booking) {
     // Handle the case where no booking is found
     $error_message = "No booking found. Please try again.";
+} else {
+    // Ensure total_cost is set
+    $booking['total_cost'] = $booking['total_cost'] ?? $booking['service_price'];
 }
 
 // Fetch user details
@@ -124,7 +127,7 @@ if (empty($fullName)) {
                         <p><strong>Date:</strong> <?php echo htmlspecialchars($booking['booking_date']); ?></p>
                         <p><strong>Time:</strong> <?php echo htmlspecialchars($booking['booking_time']); ?></p>
                         <p><strong>Location:</strong> <?php echo htmlspecialchars($booking['location']); ?></p>
-                        <p><strong>Total Cost:</strong> ₱<?php echo htmlspecialchars($booking['total_cost']); ?></p>
+                        <p><strong>Total Cost:</strong> ₱<?php echo number_format($booking['total_cost'], 2); ?></p>
                     </div>
                 </div>
                 
@@ -132,7 +135,7 @@ if (empty($fullName)) {
             </div>
             
             <div class="text-center">
-                <a href="index.php" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition duration-300">Return to Home</a>
+                <a href="user-landing.php" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition duration-300">Return to Home</a>
             </div>
         <?php endif; ?>
     </main>

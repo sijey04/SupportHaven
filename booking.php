@@ -60,6 +60,14 @@
         $technicianResult = $technicianStmt->fetch(PDO::FETCH_ASSOC);
         $technicianId = $technicianResult ? $technicianResult['user_id'] : null;
 
+        // Fetch the service price from the services table
+        $servicePriceQuery = "SELECT price FROM services WHERE id = :service_id";
+        $servicePriceStmt = $db->prepare($servicePriceQuery);
+        $servicePriceStmt->bindParam(":service_id", $serviceId);
+        $servicePriceStmt->execute();
+        $servicePriceResult = $servicePriceStmt->fetch(PDO::FETCH_ASSOC);
+        $totalCost = $servicePriceResult ? $servicePriceResult['price'] : '0.00';
+
         // Insert booking into database
         $query = "INSERT INTO bookings (user_id, service_id, technician_id, booking_date, booking_time, location, payment_method, total_cost) 
                   VALUES (:user_id, :service_id, :technician_id, :booking_date, :booking_time, :location, :payment_method, :total_cost)";
@@ -150,9 +158,13 @@
             </nav><!--/nav-->
         </header><!--/header-->
         <main class="container mx-auto px-4 py-8 mt-20">        
-            <h1 class="text-3xl font-bold text-center mb-10 mt-10">Book a Tech Service</h1>
-            <p class="text-center mb-6">Welcome, <?php echo htmlspecialchars($fullName); ?>!</p>
-
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-3xl font-bold text-center mb-10 mt-10">Book a Tech Service</h1>
+                <a href="user-landing.php" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Back to Dashboard
+                </a>
+            </div>
+            
             <?php if (isset($error_message)): ?>
                 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
                     <strong class="font-bold">Error!</strong>
@@ -248,8 +260,12 @@
                             <option selected>Select payment method</option>
                             <option value="card">Credit/Debit Card</option>
                             <option value="paypal">PayPal</option>
+                            <option value="gcash">GCash</option>
+                            <option value="cash">Cash on Meet-up</option>
+                            <option value="paymaya">PayMaya</option>
                         </select>
                     </div>
+                    <input type="hidden" id="totalCost" name="totalCost" value="0.00">
                     <button type="submit" name="submit" class="w-full bg-green-500 text-white py-3 px-4 rounded-md hover:bg-green-600 transition duration-300 text-lg font-semibold">Confirm Booking</button>
                 </div>
             </form>
@@ -278,6 +294,8 @@
                     document.getElementById('summaryServiceName').textContent = selectedOption.text;
                     document.getElementById('summaryServiceDescription').textContent = selectedOption.dataset.description || 'No description available';
                     document.getElementById('serviceDescription').textContent = selectedOption.dataset.description || 'No description available';
+                    document.getElementById('summaryTotalCost').textContent = selectedOption.dataset.price || '0.00';
+                    document.getElementById('totalCost').value = selectedOption.dataset.price || '0.00';
                 } else if (event.target.id === 'date' || event.target.id === 'time') {
                     document.getElementById('summaryDateTime').textContent = document.getElementById('date').value + ', ' + document.getElementById('time').value;
                 } else if (event.target.id === 'location') {
@@ -305,6 +323,7 @@
                     const selectedOption = this.options[this.selectedIndex];
                     const price = selectedOption.dataset.price || '0.00';
                     document.getElementById('summaryTotalCost').textContent = price;
+                    document.getElementById('totalCost').value = price;
                     document.getElementById('summaryServiceDescription').textContent = selectedOption.dataset.description || 'No description available';
                     document.getElementById('serviceDescription').textContent = selectedOption.dataset.description || 'No description available';
                 });

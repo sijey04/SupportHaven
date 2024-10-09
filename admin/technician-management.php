@@ -277,10 +277,10 @@ if (isset($_SESSION['user_id'])) {
                             <a class="nav-link active" href="technician-management.php"><i class="fas fa-user-tie me-2"></i>Technician Management</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fas fa-calendar-check me-2"></i>Booking Management</a>
+                            <a class="nav-link" href="booking-management.php"><i class="fas fa-calendar-check me-2"></i>Booking Management</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fas fa-cogs me-2"></i>Service Management</a>
+                            <a class="nav-link" href="service-management.php"><i class="fas fa-cogs me-2"></i>Service Management</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#"><i class="fas fa-chart-bar me-2"></i>Reports and Analytics</a>

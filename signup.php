@@ -1,5 +1,6 @@
 <?php
 require_once 'connection.php';
+require_once 'auth_functions.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $database = new Connection();
@@ -16,35 +17,56 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (!$tableExists) {
         $createTableQuery = "CREATE TABLE users (
-            id INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            firstName VARCHAR(50) NOT NULL,
-            lastName VARCHAR(50) NOT NULL,
+            id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            firstname VARCHAR(50) NOT NULL,
+            lastname VARCHAR(50) NOT NULL,
             email VARCHAR(100) NOT NULL UNIQUE,
             password VARCHAR(255) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            user_role_id INT(11) NOT NULL,
+            auth_provider ENUM('local', 'google', 'facebook') DEFAULT 'local',
+            oauth_id VARCHAR(255) DEFAULT NULL,
+            UNIQUE KEY unique_oauth (auth_provider, oauth_id),
+            KEY idx_email (email),
+            CONSTRAINT users_ibfk_1 FOREIGN KEY (user_role_id) REFERENCES user_roles (id)
         )";
         $db->exec($createTableQuery);
     }
 
-    $query = "INSERT INTO users (firstName, lastName, email, password) VALUES (:firstName, :lastName, :email, :password)";
-    
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(":firstName", $firstName);
-    $stmt->bindParam(":lastName", $lastName);
-    $stmt->bindParam(":email", $email);
-    $stmt->bindParam(":password", $password);
+    if (!validatePassword($_POST['password'])) {
+        $message = "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.";
+    } else {
+        // Get the default user role (assuming it's the user role with the lowest ID)
+        $roleQuery = "SELECT id FROM user_roles ORDER BY id ASC LIMIT 1";
+        $roleStmt = $db->query($roleQuery);
+        $defaultRoleId = $roleStmt->fetchColumn();
 
-    try {
-        if($stmt->execute()) {
-            $message = "Registration successful! Redirecting to login page...";
-            $redirect = true;
+        if (!$defaultRoleId) {
+            $message = "Error: No user roles defined. Please contact the administrator.";
         } else {
-            $message = "Registration failed. Please try again.";
-            $redirect = false;
+            $query = "INSERT INTO users (firstname, lastname, email, password, user_role_id, auth_provider) 
+                      VALUES (:firstName, :lastName, :email, :password, :userRoleId, 'local')";
+            
+            $stmt = $db->prepare($query);
+            $stmt->bindParam(":firstName", $firstName);
+            $stmt->bindParam(":lastName", $lastName);
+            $stmt->bindParam(":email", $email);
+            $stmt->bindParam(":password", $password);
+            $stmt->bindParam(":userRoleId", $defaultRoleId);
+
+            try {
+                if($stmt->execute()) {
+                    $message = "Registration successful! Redirecting to login page...";
+                    $redirect = true;
+                } else {
+                    $message = "Registration failed. Please try again.";
+                    $redirect = false;
+                }
+            } catch (PDOException $e) {
+                $message = "Error: " . $e->getMessage();
+                $redirect = false;
+            }
         }
-    } catch (PDOException $e) {
-        $message = "Error: " . $e->getMessage();
-        $redirect = false;
     }
 }
 ?>
@@ -155,8 +177,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <a href="#" class="btn btn-outline-secondary" onclick="signUpWithGoogle()">
                         <i class="fa fa-google me-2"></i> Sign up with Google
                     </a>
-                    <a href="#" class="btn btn-outline-secondary" onclick="signUpWithApple()">
-                        <i class="fa fa-apple me-2"></i> Sign up with Apple
+                    <a href="#" class="btn btn-outline-secondary" onclick="signUpWithFacebook()">
+                        <i class="fa fa-facebook me-2"></i> Sign up with Facebook
                     </a>
                 </div>
             </div>
@@ -177,9 +199,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             console.log('Google Sign-Up clicked');
         }
 
-        function signUpWithApple() {
-            // Implement Apple Sign-Up logic here
-            console.log('Apple Sign-Up clicked');
+        function signUpWithFacebook() {
+            // Implement Facebook Sign-Up logic here
+            console.log('Facebook Sign-Up clicked');
         }
 
         function togglePassword() {

@@ -1,15 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/../auth_middleware.php';
+checkRole('admin');
 require_once __DIR__ . '/../connection.php';
-
-// Check if user is logged in and has admin role
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
-    header("Location: ../login.php");
-    exit();
-}
-
-$database = new Connection();
-$db = $database->getConnection();
 
 // Function to fetch all users
 function getAllUsers($db) {
@@ -46,6 +39,9 @@ function getTotalUsers($db) {
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     return $result['total_users'];
 }
+
+$database = new Connection();
+$db = $database->getConnection();
 
 $users = getAllUsers($db);
 $bookings = getAllBookings($db);
@@ -158,10 +154,10 @@ if (isset($_SESSION['user_id'])) {
                             <a class="nav-link" href="technician-management.php"><i class="fas fa-user-tie me-2"></i>Technician Management</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fas fa-calendar-check me-2"></i>Booking Management</a>
+                            <a class="nav-link" href="booking-management.php"><i class="fas fa-calendar-check me-2"></i>Booking Management</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fas fa-cogs me-2"></i>Service Management</a>
+                            <a class="nav-link" href="service-management.php"><i class="fas fa-cogs me-2"></i>Service Management</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#"><i class="fas fa-chart-bar me-2"></i>Reports and Analytics</a>
@@ -188,8 +184,8 @@ if (isset($_SESSION['user_id'])) {
                     <div class="col-md-6 mb-4">
                         <div class="card bg-primary text-white">
                             <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-dollar-sign me-2"></i>Total Earnings</h5>
-                                <p class="card-text display-4">$<?php echo number_format($totalEarnings, 2); ?></p>
+                                <h5 class="card-title"><i class="fas fa-peso-sign me-2"></i>Total Earnings</h5>
+                                <p class="card-text display-4">₱<?php echo number_format($totalEarnings, 2); ?></p>
                             </div>
                         </div>
                     </div>
