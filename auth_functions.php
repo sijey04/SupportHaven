@@ -9,7 +9,7 @@ function validatePassword($password) {
     $specialChars = preg_match('/[^A-Za-z0-9]/', $password);
 
     
-    $minLength = 9  ;
+    $minLength = 8;
 
     return $uppercase && $lowercase && $number && $specialChars && strlen($password) >= $minLength;
 }

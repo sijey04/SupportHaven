@@ -6,80 +6,119 @@ require_once 'connection.php';
 $database = new Connection();
 $db = $database->getConnection();
 
+$errors = [];
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Process form submission
-    $firstName = $_POST['firstName'];
-    $lastName = $_POST['lastName'];
-    $email = $_POST['email'];
-    $phone = $_POST['phone'];
+    // Server-side validation
+    $firstName = trim($_POST['firstName']);
+    $lastName = trim($_POST['lastName']);
+    $email = trim($_POST['email']);
+    $phone = trim($_POST['phone']);
     $expertise = $_POST['expertise'];
     $experience = $_POST['experience'];
-    $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
+    $password = $_POST['password'];
 
-    // Handle file upload
-    $targetDir = "uploads/"; 
-    $fileName = basename($_FILES["photo"]["name"]);
-    $targetFilePath = $targetDir . $fileName;
-    $fileType = pathinfo($targetFilePath,PATHINFO_EXTENSION);
+    if (empty($firstName)) {
+        $errors[] = "First name is required.";
+    }
+    if (empty($lastName)) {
+        $errors[] = "Last name is required.";
+    }
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Valid email is required.";
+    }
+    if (empty($phone)) {
+        $errors[] = "Phone number is required.";
+    }
+    if (empty($expertise)) {
+        $errors[] = "Area of expertise is required.";
+    }
+    if (!is_numeric($experience) || $experience < 0) {
+        $errors[] = "Valid years of experience is required.";
+    }
+    if (strlen($password) < 8) {
+        $errors[] = "Password must be at least 8 characters long.";
+    }
 
-    if(!empty($_FILES["photo"]["name"])){
-        // Allow certain file formats
-        $allowTypes = array('jpg','png','jpeg','gif');
-        if(in_array($fileType, $allowTypes)){
-            // Create the uploads directory if it doesn't exist
-            if (!file_exists($targetDir)) {
-                if (!mkdir($targetDir, 0777, true)) {
-                    $errorMessage = "Failed to create upload directory. Please contact the administrator.";
-                }
-            }
-            
-            // Upload file to server
-            if(move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)){
-                // Start transaction
-                $db->beginTransaction();
+    // Only process if there are no errors
+    if (empty($errors)) {
+        // Check if email already exists
+        $checkEmailQuery = "SELECT COUNT(*) FROM users WHERE email = :email";
+        $checkEmailStmt = $db->prepare($checkEmailQuery);
+        $checkEmailStmt->bindParam(":email", $email);
+        $checkEmailStmt->execute();
+        
+        if ($checkEmailStmt->fetchColumn() > 0) {
+            $errors[] = "This email address is already registered. Please use a different email.";
+        } else {
+            $password = password_hash($password, PASSWORD_BCRYPT);
 
-                try {
-                    // Insert into users table first
-                    $userQuery = "INSERT INTO users (firstname, lastname, email, password, user_role_id) 
-                                  VALUES (:firstName, :lastName, :email, :password, 
-                                         (SELECT id FROM user_roles WHERE role_name = 'technician'))";
-                    $userStmt = $db->prepare($userQuery);
-                    $userStmt->bindParam(":firstName", $firstName);
-                    $userStmt->bindParam(":lastName", $lastName);
-                    $userStmt->bindParam(":email", $email);
-                    $userStmt->bindParam(":password", $password);
-                    $userStmt->execute();
+            // Handle file upload
+            $targetDir = "uploads/"; 
+            $fileName = basename($_FILES["photo"]["name"]);
+            $targetFilePath = $targetDir . $fileName;
+            $fileType = pathinfo($targetFilePath,PATHINFO_EXTENSION);
 
-                    $userId = $db->lastInsertId();
-
-                    // Insert application into technicians table
-                    $techQuery = "INSERT INTO technicians (user_id, phone, expertise, experience, photo, status) 
-                                  VALUES (:userId, :phone, :expertise, :experience, :photo, 'pending')";
-                    $techStmt = $db->prepare($techQuery);
-                    $techStmt->bindParam(":userId", $userId);
-                    $techStmt->bindParam(":phone", $phone);
-                    $techStmt->bindParam(":expertise", $expertise);
-                    $techStmt->bindParam(":experience", $experience);
-                    $techStmt->bindParam(":photo", $fileName);
+            if(!empty($_FILES["photo"]["name"])){
+                // Allow certain file formats
+                $allowTypes = array('jpg','png','jpeg','gif');
+                if(in_array($fileType, $allowTypes)){
+                    // Create the uploads directory if it doesn't exist
+                    if (!file_exists($targetDir)) {
+                        if (!mkdir($targetDir, 0777, true)) {
+                            $errors[] = "Failed to create upload directory. Please contact the administrator.";
+                        }
+                    }
                     
-                    $techStmt->execute();
+                    // Upload file to server
+                    if(move_uploaded_file($_FILES["photo"]["tmp_name"], $targetFilePath)){
+                        // Start transaction
+                        $db->beginTransaction();
 
-                    // Commit the transaction
-                    $db->commit();
-                    $successMessage = "Your application has been submitted successfully!";
-                } catch (PDOException $e) {
-                    // Rollback the transaction on error
-                    $db->rollBack();
-                    $errorMessage = "Database error: " . $e->getMessage();
+                        try {
+                            // Insert into users table first
+                            $userQuery = "INSERT INTO users (firstname, lastname, email, password, user_role_id) 
+                                          VALUES (:firstName, :lastName, :email, :password, 
+                                                 (SELECT id FROM user_roles WHERE role_name = 'technician'))";
+                            $userStmt = $db->prepare($userQuery);
+                            $userStmt->bindParam(":firstName", $firstName);
+                            $userStmt->bindParam(":lastName", $lastName);
+                            $userStmt->bindParam(":email", $email);
+                            $userStmt->bindParam(":password", $password);
+                            $userStmt->execute();
+
+                            $userId = $db->lastInsertId();
+
+                            // Insert application into technicians table
+                            $techQuery = "INSERT INTO technicians (user_id, phone, expertise, experience, photo, status) 
+                                          VALUES (:userId, :phone, :expertise, :experience, :photo, 'pending')";
+                            $techStmt = $db->prepare($techQuery);
+                            $techStmt->bindParam(":userId", $userId);
+                            $techStmt->bindParam(":phone", $phone);
+                            $techStmt->bindParam(":expertise", $expertise);
+                            $techStmt->bindParam(":experience", $experience);
+                            $techStmt->bindParam(":photo", $fileName);
+                            
+                            $techStmt->execute();
+
+                            // Commit the transaction
+                            $db->commit();
+                            $successMessage = "Your application has been submitted successfully!";
+                        } catch (PDOException $e) {
+                            // Rollback the transaction on error
+                            $db->rollBack();
+                            $errors[] = "Database error: " . $e->getMessage();
+                        }
+                    } else {
+                        $errors[] = "Sorry, there was an error uploading your file.";
+                    }
+                } else {
+                    $errors[] = "Sorry, only JPG, JPEG, PNG, & GIF files are allowed to upload.";
                 }
             } else {
-                $errorMessage = "Sorry, there was an error uploading your file.";
+                $errors[] = "Please select a file to upload.";
             }
-        } else {
-            $errorMessage = "Sorry, only JPG, JPEG, PNG, & GIF files are allowed to upload.";
         }
-    } else {
-        $errorMessage = "Please select a file to upload.";
     }
 }
 ?>
@@ -130,6 +169,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         #photo {
             display: none;
         }
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+        }
+        .password-field {
+            position: relative;
+        }
     </style>
 </head>
 <body>
@@ -146,11 +195,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="alert alert-success"><?php echo htmlspecialchars($successMessage); ?></div>
         <?php endif; ?>
         
-        <?php if (isset($errorMessage)): ?>
-            <div class="alert alert-danger"><?php echo htmlspecialchars($errorMessage); ?></div>
+        <?php if (!empty($errors)): ?>
+            <div class="alert alert-danger">
+                <ul>
+                    <?php foreach ($errors as $error): ?>
+                        <li><?php echo htmlspecialchars($error); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
         <?php endif; ?>
 
-        <form method="POST" action="" enctype="multipart/form-data">
+        <form method="POST" action="" enctype="multipart/form-data" id="applicationForm">
             <div class="form-group">
                 <label for="firstName">First Name</label>
                 <input type="text" class="form-control" id="firstName" name="firstName" required>
@@ -180,9 +235,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <label for="experience">Years of Experience</label>
                 <input type="number" class="form-control" id="experience" name="experience" min="0" required>
             </div>
-            <div class="form-group">
+            <div class="form-group password-field">
                 <label for="password">Password</label>
                 <input type="password" class="form-control" id="password" name="password" required>
+                <span class="password-toggle" onclick="togglePassword()">
+                    <i class="fa fa-eye"></i>
+                </span>
             </div>
             <div class="form-group">
                 <label for="photo">Upload Your Photo</label>
@@ -204,6 +262,64 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         actualBtn.addEventListener('change', function(){
             fileChosen.textContent = this.files[0].name;
+        });
+
+        function togglePassword() {
+            const passwordField = document.getElementById('password');
+            const toggleIcon = document.querySelector('.password-toggle i');
+            
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordField.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        }
+
+        // Client-side form validation
+        document.getElementById('applicationForm').addEventListener('submit', function(event) {
+            let isValid = true;
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const expertise = document.getElementById('expertise').value;
+            const experience = document.getElementById('experience').value;
+            const password = document.getElementById('password').value;
+            const photo = document.getElementById('photo').value;
+
+            if (firstName === '') {
+                isValid = false;
+                alert('Please enter your first name.');
+            } else if (lastName === '') {
+                isValid = false;
+                alert('Please enter your last name.');
+            } else if (email === '' || !email.includes('@')) {
+                isValid = false;
+                alert('Please enter a valid email address.');
+            } else if (phone === '') {
+                isValid = false;
+                alert('Please enter your phone number.');
+            } else if (expertise === '') {
+                isValid = false;
+                alert('Please select your area of expertise.');
+            } else if (experience === '' || isNaN(experience) || experience < 0) {
+                isValid = false;
+                alert('Please enter a valid number of years of experience.');
+            } else if (password.length < 8) {
+                isValid = false;
+                alert('Password must be at least 8 characters long.');
+            } else if (photo === '') {
+                isValid = false;
+                alert('Please select a photo to upload.');
+            }
+
+            if (!isValid) {
+                event.preventDefault();
+            }
         });
     </script>
 </body>
