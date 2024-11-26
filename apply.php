@@ -4,7 +4,7 @@ require_once 'connection.php';
 
 // Create database connection
 $database = new Connection();
-$db = $database->getConnection();
+$db = $database->getConnection();   
 
 $errors = [];
 
