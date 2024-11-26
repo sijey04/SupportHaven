@@ -93,6 +93,35 @@ function updateBookingStatus($db, $bookingId, $technicianId, $status) {
     return $stmt->execute();
 }
 
+// Function to get unassigned bookings
+function getUnassignedBookings($db) {
+    $query = "SELECT b.id, b.booking_date, b.booking_time, s.name AS service_name, 
+              u.firstname, u.lastname, b.location, b.total_cost, b.status
+              FROM bookings b
+              JOIN services s ON b.service_id = s.id
+              JOIN users u ON b.user_id = u.id
+              WHERE b.technician_id IS NULL 
+              AND b.status = 'pending'
+              AND b.booking_date >= CURDATE()
+              ORDER BY b.booking_date, b.booking_time";
+    $stmt = $db->prepare($query);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// Add function to assign booking to technician
+function assignBooking($db, $bookingId, $technicianId) {
+    $query = "UPDATE bookings 
+              SET technician_id = :technician_id, 
+                  status = 'accepted' 
+              WHERE id = :booking_id 
+              AND technician_id IS NULL";
+    $stmt = $db->prepare($query);
+    $stmt->bindParam(':technician_id', $technicianId);
+    $stmt->bindParam(':booking_id', $bookingId);
+    return $stmt->execute();
+}
+
 // Handle booking status update
 if ($action === 'update_status' && $bookingId) {
     $newStatus = $_POST['status'] ?? '';
@@ -106,6 +135,18 @@ if ($action === 'update_status' && $bookingId) {
         $_SESSION['error_message'] = "Invalid status.";
     }
     header("Location: technician.php?action=bookings");
+    exit();
+}
+
+// Add this near the top with other action handlers
+if ($action === 'assign_booking' && isset($_POST['booking_id'])) {
+    if (assignBooking($db, $_POST['booking_id'], $technicianId)) {
+        $_SESSION['success_message'] = "Job successfully assigned to you.";
+        header("Location: technician.php?action=bookings");
+    } else {
+        $_SESSION['error_message'] = "Failed to assign job. It may have been taken by another technician.";
+        header("Location: technician.php?action=available_jobs");
+    }
     exit();
 }
 
@@ -149,6 +190,7 @@ $technicianDetails = $technicianStmt->fetch(PDO::FETCH_ASSOC);
                         <a href="?action=dashboard" class="text-gray-700 hover:text-blue-500 transition duration-300">Dashboard</a>
                         <a href="?action=bookings" class="text-gray-700 hover:text-blue-500 transition duration-300">Upcoming Bookings</a>
                         <a href="?action=history" class="text-gray-700 hover:text-blue-500 transition duration-300">Job History</a>
+                        <a href="?action=available_jobs" class="text-gray-700 hover:text-blue-500 transition duration-300">Available Jobs</a>
                         <div x-data="{ profileOpen: false }" class="relative">
                             <button @click="profileOpen = !profileOpen" class="flex items-center space-x-2 focus:outline-none">
                                 <i class="fas fa-user-circle text-gray-700 text-2xl"></i>
@@ -337,6 +379,60 @@ $technicianDetails = $technicianStmt->fetch(PDO::FETCH_ASSOC);
                         <a href="?action=<?php echo $jobDetails['booking_date'] >= date('Y-m-d') ? 'bookings' : 'history'; ?>" class="mt-4 inline-block bg-blue-500 text-white active:bg-blue-600 font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150">Back to List</a>
                     <?php else: ?>
                         <p class="text-red-500">Job details not found.</p>
+                    <?php endif; ?>
+                <?php elseif ($action === 'available_jobs'): ?>
+                    <h2 class="text-2xl font-bold mb-4">Available Jobs</h2>
+                    <?php 
+                    $unassignedBookings = getUnassignedBookings($db);
+                    if (count($unassignedBookings) > 0): ?>
+                        <div class="bg-white rounded-lg shadow-md overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+                                        <th class="py-3 px-6 text-left">Date & Time</th>
+                                        <th class="py-3 px-6 text-left">Service</th>
+                                        <th class="py-3 px-6 text-left">Customer</th>
+                                        <th class="py-3 px-6 text-left">Location</th>
+                                        <th class="py-3 px-6 text-left">Payment</th>
+                                        <th class="py-3 px-6 text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-gray-600 text-sm">
+                                    <?php foreach ($unassignedBookings as $booking): ?>
+                                        <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                            <td class="py-3 px-6">
+                                                <?php echo date('M d, Y', strtotime($booking['booking_date'])); ?>
+                                                <br>
+                                                <span class="text-gray-500">
+                                                    <?php echo date('h:i A', strtotime($booking['booking_time'])); ?>
+                                                </span>
+                                            </td>
+                                            <td class="py-3 px-6"><?php echo htmlspecialchars($booking['service_name']); ?></td>
+                                            <td class="py-3 px-6">
+                                                <?php echo htmlspecialchars($booking['firstname'] . ' ' . $booking['lastname']); ?>
+                                            </td>
+                                            <td class="py-3 px-6"><?php echo htmlspecialchars($booking['location']); ?></td>
+                                            <td class="py-3 px-6">₱<?php echo number_format($booking['total_cost'], 2); ?></td>
+                                            <td class="py-3 px-6 text-center">
+                                                <form action="?action=assign_booking" method="POST" 
+                                                      onsubmit="return confirm('Are you sure you want to take this job?');">
+                                                    <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
+                                                    <button type="submit" 
+                                                            class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-300">
+                                                        <i class="fas fa-check mr-2"></i>Take Job
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php else: ?>
+                        <div class="bg-white rounded-lg shadow-md p-6 text-center">
+                            <i class="fas fa-clipboard-list text-gray-400 text-5xl mb-4"></i>
+                            <p class="text-gray-600">No available jobs at the moment.</p>
+                        </div>
                     <?php endif; ?>
                 <?php endif; ?>
             </main>
