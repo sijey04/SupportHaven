@@ -288,10 +288,10 @@ if (isset($_SESSION['user_id'])) {
                             <a class="nav-link" href="service-management.php"><i class="fas fa-cogs me-2"></i>Service Management</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fas fa-chart-bar me-2"></i>Reports and Analytics</a>
+                            <a class="nav-link" href="analytics.php"><i class="fas fa-chart-bar me-2"></i>Reports and Analytics</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#"><i class="fas fa-sliders-h me-2"></i>Settings</a>
+                            <a class="nav-link" href="settings.php"><i class="fas fa-sliders-h me-2"></i>Settings</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="../logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>

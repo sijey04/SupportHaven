@@ -164,24 +164,25 @@ CREATE TABLE `users` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `user_role_id` int(11) NOT NULL,
   `auth_provider` enum('local','google','facebook') DEFAULT 'local',
-  `oauth_id` varchar(255) DEFAULT NULL
+  `oauth_id` varchar(255) DEFAULT NULL,
+  `avatar` VARCHAR(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`id`, `firstname`, `lastname`, `email`, `password`, `created_at`, `user_role_id`, `auth_provider`, `oauth_id`) VALUES
-(1, 'Rezier ', 'Magno', 'putli737@yahoo.com', '$2y$10$y4wE9BsXsmC58Kgx9I0RaOlwWaXs1191.bB90Bt29LCc82jwM8mFi', '2024-09-10 17:07:33', 2, 'local', NULL),
-(2, 'sijey', 'Magno', 'sijeycutie12@gmail.com', '$2y$10$4HvN2NSehe5KiSrOm9M2wuTJ5rbhVczkrBGHkqC9MsahGvUWQSsx2', '2024-09-10 17:17:17', 1, 'local', NULL),
-(3, 'sijey', 'sss', 'meow@gmail.com', '$2y$10$9MwWdRz2iJ4Nw33nZR9M.u4QJ75UqRoPqY0I1n0rowHFAkFkg514e', '2024-09-10 17:24:31', 1, 'local', NULL),
-(4, 'Benoit', 'Montefalco', 'benoit@gmail.com', '$2y$10$u0WKzt8WBbs2Z83UhpdrM.rhBeDGK/kfk2oZjlnZ57wNzspEKsVRW', '2024-09-14 16:06:13', 2, 'local', NULL),
-(5, 'Christian Jude', 'Faminiano', 'faminianochristianjude@gmail.com', '$2y$10$AHyU99P5IwB6RijFoPsyoe.GIw30masHGwAJ5hRMkJO6oDpeL26.m', '2024-09-15 14:27:06', 3, 'local', NULL),
-(6, 'John', 'Camagaling', 'john@gmail.com', '$2y$10$ZnWvYZKZQ2WCLOErdB9QNOKoT9H3lePBgzQZ15VV6dlr5mUhbptcK', '2024-09-16 15:10:17', 1, 'local', NULL),
-(42, 'Mike', 'Enriquez', 'mike@gmail.com', '$2y$10$FG73v1g4i54CzPk1472BNeB0m.D9u2RWcrhUWpPErK4vZ0rHsdCuK', '2024-09-20 18:57:05', 2, 'local', NULL),
-(43, 'Condom', 'Faminianoo', 'Dragonss@gmail.com', '$2y$10$d.TDmbzx8ypVfeBofH/KEuvMjpXjWMRqJzm3/DEfn3b3g7oqSMQh2', '2024-10-11 18:21:28', 1, 'local', NULL),
-(44, 'Ror', 'momo', 'meow1@gmail.com', '$2y$10$7lDPmgP.5tARQxNgjswaU.FZridBYCyUNIqNR0B24W5tFfcMAQ7D.', '2024-10-12 16:21:09', 1, 'local', NULL),
-(45, 'low', 'mal', 'mal@gmail.com', '$2y$10$6C88w9fjjGLXfcXZdkZo9Ow.fG7yWi3LFGulF.nI4ArjnBkpP1fDm', '2024-10-12 16:23:20', 2, 'local', NULL);
+INSERT INTO `users` (`id`, `firstname`, `lastname`, `email`, `password`, `created_at`, `user_role_id`, `auth_provider`, `oauth_id`, `avatar`) VALUES
+(1, 'Rezier ', 'Magno', 'putli737@yahoo.com', '$2y$10$y4wE9BsXsmC58Kgx9I0RaOlwWaXs1191.bB90Bt29LCc82jwM8mFi', '2024-09-10 17:07:33', 2, 'local', NULL, NULL),
+(2, 'sijey', 'Magno', 'sijeycutie12@gmail.com', '$2y$10$4HvN2NSehe5KiSrOm9M2wuTJ5rbhVczkrBGHkqC9MsahGvUWQSsx2', '2024-09-10 17:17:17', 1, 'local', NULL, NULL),
+(3, 'sijey', 'sss', 'meow@gmail.com', '$2y$10$9MwWdRz2iJ4Nw33nZR9M.u4QJ75UqRoPqY0I1n0rowHFAkFkg514e', '2024-09-10 17:24:31', 1, 'local', NULL, NULL),
+(4, 'Benoit', 'Montefalco', 'benoit@gmail.com', '$2y$10$u0WKzt8WBbs2Z83UhpdrM.rhBeDGK/kfk2oZjlnZ57wNzspEKsVRW', '2024-09-14 16:06:13', 2, 'local', NULL, NULL),
+(5, 'Christian Jude', 'Faminiano', 'faminianochristianjude@gmail.com', '$2y$10$AHyU99P5IwB6RijFoPsyoe.GIw30masHGwAJ5hRMkJO6oDpeL26.m', '2024-09-15 14:27:06', 3, 'local', NULL, NULL),
+(6, 'John', 'Camagaling', 'john@gmail.com', '$2y$10$ZnWvYZKZQ2WCLOErdB9QNOKoT9H3lePBgzQZ15VV6dlr5mUhbptcK', '2024-09-16 15:10:17', 1, 'local', NULL, NULL),
+(42, 'Mike', 'Enriquez', 'mike@gmail.com', '$2y$10$FG73v1g4i54CzPk1472BNeB0m.D9u2RWcrhUWpPErK4vZ0rHsdCuK', '2024-09-20 18:57:05', 2, 'local', NULL, NULL),
+(43, 'Condom', 'Faminianoo', 'Dragonss@gmail.com', '$2y$10$d.TDmbzx8ypVfeBofH/KEuvMjpXjWMRqJzm3/DEfn3b3g7oqSMQh2', '2024-10-11 18:21:28', 1, 'local', NULL, NULL),
+(44, 'Ror', 'momo', 'meow1@gmail.com', '$2y$10$7lDPmgP.5tARQxNgjswaU.FZridBYCyUNIqNR0B24W5tFfcMAQ7D.', '2024-10-12 16:21:09', 1, 'local', NULL, NULL),
+(45, 'low', 'mal', 'mal@gmail.com', '$2y$10$6C88w9fjjGLXfcXZdkZo9Ow.fG7yWi3LFGulF.nI4ArjnBkpP1fDm', '2024-10-12 16:23:20', 2, 'local', NULL, NULL);
 
 -- --------------------------------------------------------
 
