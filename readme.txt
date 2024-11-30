@@ -133,8 +133,6 @@ supporthaven/
 
 For technical support or queries:
 - Email: faminianochristianjude@gmail.com
-- Phone: (+63) 97087015677
-- Address: Jongstong Subdivision, San Jose Cawa-Cawa, Zamboanga City, 7000
 
 ## License
 
