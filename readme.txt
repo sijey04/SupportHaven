@@ -1,72 +1,146 @@
 # SupportHaven
 
-SupportHaven is a comprehensive web application designed to connect users with expert technicians for various tech support and handyman services. This platform streamlines the process of booking technical assistance, managing user accounts, and administering the service.
+SupportHaven is a comprehensive web application that connects users with expert technicians for tech support services. The platform streamlines the process of booking technical assistance, managing user accounts, and provides a robust admin system for service management.
 
-**Note: This project is currently under development and is not yet complete.**
+## Core Features
 
-## Features
+### For Users
+- **Service Booking**: Easy-to-use booking system with step-by-step process
+- **Dashboard**: Personal dashboard showing recent and upcoming bookings
+- **Service History**: Track past services and provide ratings
+- **Profile Management**: Update personal information and preferences
 
-- **User Authentication**: Secure login and registration system with role-based access control.
-- **Service Booking**: Users can easily book tech support services with preferred date and time.
-- **User Management**: Admins can manage user accounts, including customers and technicians.
-- **Technician Management**: Special features for managing technician profiles and assignments.
-- **Admin Dashboard**: Comprehensive dashboard for administrators to oversee operations.
-- **Responsive Design**: Mobile-friendly interface ensuring accessibility across devices.
+### For Technicians
+- **Application System**: Multi-step application process with document verification
+- **Profile Management**: Manage expertise, availability, and credentials
+- **Service Management**: View and manage assigned service requests
+- **Rating System**: Build reputation through customer ratings
+
+### For Administrators
+- **User Management**: Comprehensive control over user accounts
+- **Technician Verification**: Review and approve technician applications
+- **Service Oversight**: Monitor all service bookings and completions
+- **Document Management**: Review and verify technician credentials
+
+## Technical Features
+
+### Security
+- Secure session management
+- Password hashing and encryption
+- Role-based access control
+- Document verification system
+- Two-factor authentication support
+
+### User Interface
+- Responsive design for all devices
+- Modern, intuitive interface
+- Progress tracking for multi-step processes
+- Real-time feedback and notifications
+- Interactive booking calendar
+
+### Backend
+- Robust database architecture
+- Efficient query optimization
+- File upload handling
+- Error logging and handling
+- Transaction management
 
 ## Technology Stack
 
-- **Frontend**: HTML, CSS, JavaScript, Bootstrap
-- **Backend**: PHP
-- **Database**: MySQL
-- **Additional Libraries**: Font Awesome for icons
+- **Frontend**:
+  - HTML5/CSS3
+  - JavaScript
+  - TailwindCSS
+  - Font Awesome icons
+  - Animate.css for animations
+
+- **Backend**:
+  - PHP 7.4+
+  - MySQL/MariaDB
+  - PDO for database connections
+  - Session management
+
+- **Security**:
+  - Password hashing (PHP password_hash)
+  - Prepared statements
+  - CSRF protection
+  - XSS prevention
 
 ## Installation
 
-1. Clone the repository to your local machine.
-2. Set up a PHP development environment (e.g., XAMPP, WAMP).
-3. Import the provided SQL file to set up the database structure.
-4. Configure the database connection in `connection.php`.
-5. Place the project files in your web server's document root.
-6. Access the application through your web browser.
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/sijey04/supporthaven.git
+   ```
+
+2. Set up the database:
+   - Import `haven.sql` to your MySQL server
+   - Configure database connection in `connection.php`
+
+3. Configure your web server:
+   - Point document root to the project directory
+   - Ensure PHP 7.4+ is installed
+   - Enable required PHP extensions (PDO, mysqli)
+
+4. Set up file permissions:
+   ```bash
+   chmod 755 -R /path/to/project
+   chmod 777 -R /path/to/project/uploads
+   ```
+
+5. Configure environment:
+   - Set up mail server details if needed
+   - Configure any API keys required
+   - Set appropriate PHP settings in php.ini
+
+## Directory Structure
+
+```
+supporthaven/
+├── admin/              # Admin panel files
+├── css/               # Stylesheets
+├── images/            # Image assets
+├── js/                # JavaScript files
+├── uploads/           # User uploads
+│   ├── documents/     # Technician documents
+│   └── profile_images/# User profile photos
+├── connection.php     # Database configuration
+├── index.html         # Landing page
+└── README.md         # Documentation
+```
 
 ## Usage
 
-- **For Users**: 
-  - Register an account or log in.
-  - Browse available services and book appointments.
-  - View and manage your bookings.
+### User Access
+- Visit the homepage and register/login
+- Browse available services
+- Book appointments with preferred time slots
+- Track service status and history
 
-- **For Technicians**:
-  - Log in to view assigned tasks.
-  - Update job status and provide service notes.
+### Technician Access
+- Apply through the technician portal
+- Submit required documentation
+- Manage service requests and schedule
+- Update service status and details
 
-- **For Administrators**:
-  - Access the admin panel via `/admin/admin.php`.
-  - Manage users, technicians, and bookings.
-  - View analytics and generate reports.
+### Admin Access
+- Access admin panel via /admin
+- Manage users and technicians
+- Review applications and documents
+- Monitor service bookings and completion
 
-## Security
+## Support
 
-- Implements secure session management.
-- Uses prepared statements to prevent SQL injection.
-- Employs password hashing for user security.
-
-## Contributing
-
-Contributions to SupportHaven are welcome. Please follow these steps:
-
-1. Fork the repository.
-2. Create a new branch for your feature.
-3. Commit your changes.
-4. Push to the branch.
-5. Create a new Pull Request.
+For technical support or queries:
+- Email: faminianochristianjude@gmail.com
+- Phone: (+63) 97087015677
+- Address: Jongstong Subdivision, San Jose Cawa-Cawa, Zamboanga City, 7000
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See LICENSE file for details.
 
+## Credits
 
-## Contact
-
-For any queries or support, please contact Christian Jude Faminiano at faminianochristianjude@gmail.com.
+Developed by Christian Jude Faminiano
 
