@@ -49,6 +49,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 unset($_SESSION['login_attempts']);
                 unset($_SESSION['lockout_time']);
 
+                // If user is a technician, check their status
+                if ($user['role_name'] == 'technician') {
+                    // Check technician status
+                    $techQuery = "SELECT status FROM technicians WHERE user_id = :user_id";
+                    $techStmt = $db->prepare($techQuery);
+                    $techStmt->bindParam(":user_id", $user['id']);
+                    $techStmt->execute();
+                    $techStatus = $techStmt->fetchColumn();
+
+                    if ($techStatus !== 'approved') {
+                        $error = "Your technician application is still pending approval. Please wait for admin confirmation.";
+                        // Store status in session for displaying on pending page
+                        $_SESSION['tech_status'] = $techStatus;
+                        header('Location: application-pending.php');
+                        exit();
+                    }
+                }
+
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_name'] = $user['firstName'] . ' ' . $user['lastName'];
                 $_SESSION['user_email'] = $user['email'];
@@ -283,5 +301,3 @@ if (!isset($_SESSION['csrf_token'])) {
     </script>
 </body>
 </html>
-```
-</rewritten_file>

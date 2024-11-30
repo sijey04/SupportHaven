@@ -2,16 +2,32 @@
 require_once 'connection.php';
 
 function validatePassword($password) {
+    // Check for minimum length of 8 characters
+    if (strlen($password) < 8) {
+        return false;
+    }
     
-    $uppercase = preg_match('/[A-Z]/', $password);
-    $lowercase = preg_match('/[a-z]/', $password);
-    $number    = preg_match('/[0-9]/', $password);
-    $specialChars = preg_match('/[^A-Za-z0-9]/', $password);
-
+    // Check for at least one uppercase letter
+    if (!preg_match('/[A-Z]/', $password)) {
+        return false;
+    }
     
-    $minLength = 8;
-
-    return $uppercase && $lowercase && $number && $specialChars && strlen($password) >= $minLength;
+    // Check for at least one lowercase letter
+    if (!preg_match('/[a-z]/', $password)) {
+        return false;
+    }
+    
+    // Check for at least one number
+    if (!preg_match('/[0-9]/', $password)) {
+        return false;
+    }
+    
+    // Check for at least one special character
+    if (!preg_match('/[^A-Za-z0-9]/', $password)) {
+        return false;
+    }
+    
+    return true;
 }
 function generateTwoFactorSecret() {
     return bin2hex(random_bytes(16));

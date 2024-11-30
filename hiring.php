@@ -146,10 +146,10 @@
                     <img src="images/logo.png" alt="SupportHaven Logo">
                 </a>
                 <ul>
-                    <li><a href="#why-join-us" class="nav-link">Why join us?</a></li>
-                    <li><a href="#how-it-works" class="nav-link">How it works</a></li>
-                    <li><a href="#expertise" class="nav-link">Areas of Expertise</a></li>
-                    <li><a href="#testimonials" class="nav-link">Testimonials</a></li>
+                    <li><a href="why-join-us.php">Why join us?</a></li>
+                    <li><a href="how-it-works.php">How it works</a></li>
+                    <li><a href="expertise-areas.php">Areas of Expertise</a></li>
+                    <li><a href="testimonials.php">Testimonials</a></li>
                 </ul>
                 <a href="apply.php" class="cta-button">Apply Today</a>
             </nav>
@@ -312,34 +312,7 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', (event) => {
-        const navLinks = document.querySelectorAll('.nav-link');
-        
-        navLinks.forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                
-                const targetId = this.getAttribute('href').substring(1);
-                const targetElement = document.getElementById(targetId);
-                
-                if (targetElement) {
-                    const headerHeight = document.querySelector('header').offsetHeight;
-                    const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - headerHeight;
-                    
-                    window.scrollTo({
-                        top: targetPosition,
-                        behavior: 'smooth'
-                    });
-                    
-                    // Add animation class
-                    targetElement.classList.add('animate__animated', 'animate__pulse');
-                    
-                    // Remove animation class after animation ends
-                    setTimeout(() => {
-                        targetElement.classList.remove('animate__animated', 'animate__pulse');
-                    }, 1000);
-                }
-            });
-        });
+        // Remove all JavaScript for navigation links to allow default behavior
     });
     </script>
 </body>

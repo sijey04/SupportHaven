@@ -30,7 +30,18 @@ function getTechnicianById($db, $id) {
     $stmt = $db->prepare($query);
     $stmt->bindParam(':id', $id);
     $stmt->execute();
-    return $stmt->fetch(PDO::FETCH_ASSOC);
+    $technician = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Get documents
+    if ($technician) {
+        $docQuery = "SELECT * FROM technician_documents WHERE technician_id = :tech_id";
+        $docStmt = $db->prepare($docQuery);
+        $docStmt->bindParam(':tech_id', $id);
+        $docStmt->execute();
+        $technician['documents'] = $docStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    return $technician;
 }
 
 // Function to add new technician
@@ -58,7 +69,8 @@ function addTechnician($db, $technicianData) {
         $techStmt->bindParam(":phone", $technicianData['phone']);
         $techStmt->bindParam(":expertise", $technicianData['expertise']);
         $techStmt->bindParam(":experience", $technicianData['experience']);
-        $techStmt->bindParam(":photo", "/uploads/" . $technicianData['photo']);
+        $photoPath = "uploads/" . $technicianData['photo'];
+        $techStmt->bindParam(":photo", $photoPath);
         $techStmt->execute();
 
         $db->commit();
@@ -255,6 +267,19 @@ if (isset($_SESSION['user_id'])) {
         .modal-dialog {
             margin: 1.75rem auto;
         }
+        .technician-avatar {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .img-fluid.rounded {
+            max-height: 300px;
+            width: 100%;
+            object-fit: cover;
+        }
     </style>
 </head>
 <body>
@@ -330,7 +355,15 @@ if (isset($_SESSION['user_id'])) {
                                         <?php foreach ($technicians as $technician): ?>
                                         <tr>
                                             <td>
-                                                <img src="<?php echo htmlspecialchars($technician['photo']); ?>" alt="<?php echo htmlspecialchars($technician['firstName'] . ' ' . $technician['lastName']); ?>" class="technician-avatar">
+                                                <?php if (!empty($technician['photo'])): ?>
+                                                    <img src="<?php echo '../' . htmlspecialchars($technician['photo']); ?>" 
+                                                         alt="<?php echo htmlspecialchars($technician['firstName'] . ' ' . $technician['lastName']); ?>" 
+                                                         class="technician-avatar" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;">
+                                                <?php else: ?>
+                                                    <img src="../images/default-avatar.svg" 
+                                                         alt="Default Avatar" 
+                                                         class="technician-avatar" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;">
+                                                <?php endif; ?>
                                             </td>
                                             <td><?php echo htmlspecialchars($technician['id']); ?></td>
                                             <td><?php echo htmlspecialchars($technician['firstName'] . ' ' . $technician['lastName']); ?></td>
@@ -419,7 +452,15 @@ if (isset($_SESSION['user_id'])) {
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-md-4">
-                                    <img src="<?php echo htmlspecialchars($technician['photo']); ?>" alt="<?php echo htmlspecialchars($technician['firstName'] . ' ' . $technician['lastName']); ?>" class="img-fluid rounded">
+                                    <?php if (!empty($technician['photo'])): ?>
+                                        <img src="<?php echo '../' . htmlspecialchars($technician['photo']); ?>" 
+                                             alt="<?php echo htmlspecialchars($technician['firstName'] . ' ' . $technician['lastName']); ?>" 
+                                             class="img-fluid rounded">
+                                    <?php else: ?>
+                                        <img src="../images/default-avatar.svg" 
+                                             alt="Default Avatar" 
+                                             class="img-fluid rounded">
+                                    <?php endif; ?>
                                 </div>
                                 <div class="col-md-8">
                                     <dl class="row">
@@ -444,6 +485,35 @@ if (isset($_SESSION['user_id'])) {
                                         <dt class="col-sm-3">Status</dt>
                                         <dd class="col-sm-9"><?php echo htmlspecialchars($technician['status']); ?></dd>
                                     </dl>
+                                </div>
+                            </div>
+                            <div class="col-md-12 mt-4">
+                                <h3 class="mb-3">Documents</h3>
+                                <div class="row">
+                                    <?php if (!empty($technician['documents'])): ?>
+                                        <?php foreach ($technician['documents'] as $document): ?>
+                                            <div class="col-md-4 mb-3">
+                                                <div class="card">
+                                                    <div class="card-body">
+                                                        <h5 class="card-title">
+                                                            <?php echo ucfirst($document['document_type']); ?>
+                                                        </h5>
+                                                        <p class="card-text">
+                                                            Uploaded: <?php echo date('M d, Y', strtotime($document['uploaded_at'])); ?>
+                                                        </p>
+                                                        <a href="../uploads/documents/<?php echo htmlspecialchars($document['file_name']); ?>" 
+                                                           class="btn btn-primary btn-sm" target="_blank">
+                                                            <i class="fas fa-eye me-1"></i> View Document
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <div class="col-12">
+                                            <p class="text-muted">No documents uploaded</p>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                             <a href="?action=list" class="btn btn-primary mt-3">Back to List</a>

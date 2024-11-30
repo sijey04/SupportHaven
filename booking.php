@@ -140,10 +140,8 @@
             .step-progress {
                 position: relative;
                 padding: 40px 0;
-                margin-bottom: 60px;
+                margin: 20px auto 60px;
                 max-width: 800px;
-                margin-left: auto;
-                margin-right: auto;
             }
             
             .step-progress-bar {
@@ -165,11 +163,12 @@
             }
             
             .step-progress-circles {
+                position: relative;
+                z-index: 2;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                position: relative;
-                z-index: 1;
+                padding: 0 20px;
             }
             
             .step-circle {
@@ -376,14 +375,14 @@
 
             /* Animation for step transitions */
             .step-content {
-                opacity: 0;
-                transform: translateY(10px);
+                opacity: 1;
                 transition: all 0.4s ease;
+                margin-top: 20px;
             }
 
-            .step-content.active {
-                opacity: 1;
-                transform: translateY(0);
+            .step-content.hidden {
+                display: none;
+                opacity: 0;
             }
 
             /* Add to your existing styles */
@@ -450,6 +449,156 @@
                 justify-content: flex-end;
                 gap: 10px;
             }
+
+            /* Add these to your existing styles */
+            .navbar-nav > li > a {
+                padding: 15px 10px;
+                display: flex;
+                align-items: center;
+            }
+
+            .navbar-nav img {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                object-fit: cover;
+                border: 2px solid white;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                margin-right: 8px;
+            }
+
+            .flex {
+                display: flex;
+            }
+
+            .items-center {
+                align-items: center;
+            }
+
+            .mr-2 {
+                margin-right: 0.5rem;
+            }
+
+            .w-8 {
+                width: 2rem;
+            }
+
+            .h-8 {
+                height: 2rem;
+            }
+
+            .rounded-full {
+                border-radius: 9999px;
+            }
+
+            .object-cover {
+                object-fit: cover;
+            }
+
+            .border-2 {
+                border-width: 2px;
+            }
+
+            .border-white {
+                border-color: white;
+            }
+
+            .shadow-sm {
+                box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            }
+
+            /* Header and Navigation Styles */
+            #header {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                z-index: 1000;
+                background: white;
+            }
+
+            #main-nav {
+                padding: 10px 0;
+                border-bottom: 1px solid #e5e7eb;
+                background: white;
+            }
+
+            .navbar-brand {
+                padding: 10px 15px;
+            }
+
+            .navbar-brand img {
+                height: 35px;
+                width: auto;
+            }
+
+            .nav-item {
+                display: flex;
+                align-items: center;
+            }
+
+            .nav-link {
+                display: flex;
+                align-items: center;
+                padding: 8px 16px !important;
+                color: #374151 !important;
+                font-weight: 500;
+                gap: 8px;
+            }
+
+            .nav-link:hover {
+                color: #4f46e5 !important;
+            }
+
+            .user-menu {
+                display: flex;
+                align-items: center;
+                background: #f3f4f6;
+                border-radius: 9999px;
+                padding: 6px 16px !important;
+                margin-left: 8px;
+            }
+
+            .user-menu:hover {
+                background: #e5e7eb;
+            }
+
+            .profile-image {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                object-fit: cover;
+                margin-left: 8px;
+                border: 2px solid white;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+
+            /* Main Content Spacing */
+            main {
+                margin-top: 80px;
+                padding-top: 20px;
+            }
+
+            /* Responsive Adjustments */
+            @media (max-width: 768px) {
+                .navbar-collapse {
+                    background: white;
+                    padding: 15px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    margin-top: 10px;
+                }
+
+                .user-menu {
+                    margin-left: 0;
+                    margin-top: 8px;
+                    border-radius: 6px;
+                }
+
+                .nav-link {
+                    padding: 12px !important;
+                }
+            }
         </style>
     </head>
 
@@ -469,17 +618,34 @@
                     
                     <div class="collapse navbar-collapse navbar-right">
                         <ul class="nav navbar-nav">
-                        <li><a href="#"><i class="fa fa-user"></i> <?php echo htmlspecialchars($fullName); ?></a></li>
-                            <li><a href="logout.php">Logout</a></li>
+                            <li class="nav-item">
+                                <a href="user-landing.php" class="nav-link">
+                                    <span>DASHBOARD</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="account-settings.php" class="nav-link user-menu">
+                                    <span><?php echo htmlspecialchars($fullName); ?></span>
+                                    <img src="<?php 
+                                        if (!empty($user['avatar']) && file_exists('uploads/profile_images/' . $user['avatar'])) {
+                                            echo 'uploads/profile_images/' . htmlspecialchars($user['avatar']);
+                                        } else {
+                                            echo 'images/default-avatar.png';
+                                        }
+                                    ?>" 
+                                    alt="Profile" class="profile-image">
+                                </a>
+                            </li>
                         </ul>
                     </div>
-                </div><!--/.container-->
-            </nav><!--/nav-->
-        </header><!--/header-->
-        <main class="container mx-auto px-4 py-8 mt-20 max-w-4xl">        
-            <div class="text-center mb-12">
-                <h1 class="text-3xl font-bold mb-4 mt-10">Book Your Service</h1>
-                <p class="text-gray-600">Complete the steps below to schedule your service</p>
+                </div>
+            </nav>
+        </header>
+        <main class="container mx-auto px-4 py-8">        
+            <div class="booking-container">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold">Book Your Service</h1>
+                    <p class="text-gray-600 mt-2">Complete the steps below to schedule your service</p>
             </div>
 
             <!-- Progress Bar -->
@@ -503,7 +669,7 @@
                 </div>
             </div>
 
-            <!-- Updated Form Structure -->
+                <!-- Booking Form -->
             <form id="booking-form" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
                 <!-- Step 1: Service Selection -->
                 <div class="step-content" id="step-1-content">
@@ -559,10 +725,15 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Time</label>
                                     <select id="time" name="time" class="form-control w-full" required>
                                         <option value="">Select time</option>
+                                        <option value="08:00:00">8:00 AM</option>
                                         <option value="09:00:00">9:00 AM</option>
+                                        <option value="10:00:00">10:00 AM</option>
                                         <option value="11:00:00">11:00 AM</option>
                                         <option value="13:00:00">1:00 PM</option>
+                                        <option value="14:00:00">2:00 PM</option>
                                         <option value="15:00:00">3:00 PM</option>
+                                        <option value="16:00:00">4:00 PM</option>
+                                        <option value="17:00:00">5:00 PM</option>
                                     </select>
                                 </div>
                             </div>
@@ -671,6 +842,7 @@
                     </div>
                 </div>
             </form>
+            </div>
         </main>
         <div id="map-modal">
             <div class="map-container">

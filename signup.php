@@ -6,70 +6,77 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $database = new Connection();
     $db = $database->getConnection();
 
-    $firstName = $_POST['firstName'];
-    $lastName = $_POST['lastName'];
-    $email = $_POST['email'];
-    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+    $firstName = trim($_POST['firstName']);
+    $lastName = trim($_POST['lastName']);
+    $email = trim($_POST['email']);
+    $password = $_POST['password'];
+    $confirmPassword = $_POST['confirmPassword'];
 
-    // Check if the 'users' table exists, if not create it
-    $checkTableQuery = "SHOW TABLES LIKE 'users'";
-    $tableExists = $db->query($checkTableQuery)->rowCount() > 0;
-
-    if (!$tableExists) {
-        $createTableQuery = "CREATE TABLE users (
-            id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            firstname VARCHAR(50) NOT NULL,
-            lastname VARCHAR(50) NOT NULL,
-            email VARCHAR(100) NOT NULL UNIQUE,
-            password VARCHAR(255) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            user_role_id INT(11) NOT NULL,
-            auth_provider ENUM('local', 'google', 'facebook') DEFAULT 'local',
-            oauth_id VARCHAR(255) DEFAULT NULL,
-            UNIQUE KEY unique_oauth (auth_provider, oauth_id),
-            KEY idx_email (email),
-            CONSTRAINT users_ibfk_1 FOREIGN KEY (user_role_id) REFERENCES user_roles (id)
-        )";
-        $db->exec($createTableQuery);
+    // First check if passwords match
+    if ($password !== $confirmPassword) {
+        $message = "Passwords do not match. Please try again.";
+        $messageType = "danger";
     }
-
-    if (!validatePassword($_POST['password'])) {
-        $message = "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.";
-    } else {
-        // Get the default user role (assuming it's the user role with the lowest ID)
-        $roleQuery = "SELECT id FROM user_roles ORDER BY id ASC LIMIT 1";
-        $roleStmt = $db->query($roleQuery);
-        $defaultRoleId = $roleStmt->fetchColumn();
-
-        if (!$defaultRoleId) {
-            $message = "Error: No user roles defined. Please contact the administrator.";
+    // Then check if email exists
+    else {
+        $checkEmailQuery = "SELECT COUNT(*) FROM users WHERE email = :email";
+        $checkStmt = $db->prepare($checkEmailQuery);
+        $checkStmt->bindParam(":email", $email);
+        $checkStmt->execute();
+        
+        if ($checkStmt->fetchColumn() > 0) {
+            $message = "This email address is already registered. Please use a different email or login.";
+            $messageType = "danger";
+        } else if (!validatePassword($password)) {
+            $message = "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.";
+            $messageType = "danger";
         } else {
-            $query = "INSERT INTO users (firstname, lastname, email, password, user_role_id, auth_provider) 
-                      VALUES (:firstName, :lastName, :email, :password, :userRoleId, 'local')";
-            
-            $stmt = $db->prepare($query);
-            $stmt->bindParam(":firstName", $firstName);
-            $stmt->bindParam(":lastName", $lastName);
-            $stmt->bindParam(":email", $email);
-            $stmt->bindParam(":password", $password);
-            $stmt->bindParam(":userRoleId", $defaultRoleId);
+            // Hash password after validation
+            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-            try {
-                if($stmt->execute()) {
-                    $message = "Registration successful! Redirecting to login page...";
-                    $redirect = true;
-                } else {
-                    $message = "Registration failed. Please try again.";
-                    $redirect = false;
+            // Get the default user role (assuming it's the customer role)
+            $roleQuery = "SELECT id FROM user_roles WHERE role_name = 'customer' LIMIT 1";
+            $roleStmt = $db->query($roleQuery);
+            $defaultRoleId = $roleStmt->fetchColumn();
+
+            if (!$defaultRoleId) {
+                $message = "Error: No user roles defined. Please contact the administrator.";
+                $messageType = "danger";
+            } else {
+                try {
+                    $query = "INSERT INTO users (firstname, lastname, email, password, user_role_id, auth_provider) 
+                              VALUES (:firstName, :lastName, :email, :password, :userRoleId, 'local')";
+                    
+                    $stmt = $db->prepare($query);
+                    $stmt->bindParam(":firstName", $firstName);
+                    $stmt->bindParam(":lastName", $lastName);
+                    $stmt->bindParam(":email", $email);
+                    $stmt->bindParam(":password", $hashedPassword);
+                    $stmt->bindParam(":userRoleId", $defaultRoleId);
+
+                    if($stmt->execute()) {
+                        $message = "Registration successful! Redirecting to login page...";
+                        $messageType = "success";
+                        $redirect = true;
+                    } else {
+                        $message = "Registration failed. Please try again.";
+                        $messageType = "danger";
+                    }
+                } catch (PDOException $e) {
+                    $message = "Error: " . $e->getMessage();
+                    $messageType = "danger";
                 }
-            } catch (PDOException $e) {
-                $message = "Error: " . $e->getMessage();
-                $redirect = false;
             }
         }
     }
 }
 ?>
+
+<?php if(isset($message)) { ?>
+    <div class="alert alert-<?php echo $messageType; ?>" role="alert">
+        <?php echo htmlspecialchars($message); ?>
+    </div>
+<?php } ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -159,9 +166,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <input type="email" class="form-control" name="email" placeholder="Email" required>
                     </div>
                     <div class="mb-3 position-relative">
-                        <input type="password" class="form-control" name="password" id="password" placeholder="Password (6 or more characters)" required>
-                        <span class="password-toggle" onclick="togglePassword()">
+                        <input type="password" class="form-control" name="password" id="password" 
+                               placeholder="Password (8 or more characters)" 
+                               pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}"
+                               title="Must contain at least one number, one uppercase and lowercase letter, one special character, and at least 8 characters"
+                               required>
+                        <span class="password-toggle" onclick="togglePassword('password', 'toggleIcon')">
                             <i class="fa fa-eye" id="toggleIcon"></i>
+                        </span>
+                        <div class="form-text">
+                            Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.
+                        </div>
+                    </div>
+                    <div class="mb-3 position-relative">
+                        <input type="password" class="form-control" name="confirmPassword" id="confirmPassword" 
+                               placeholder="Confirm Password" required>
+                        <span class="password-toggle" onclick="togglePassword('confirmPassword', 'toggleIconConfirm')">
+                            <i class="fa fa-eye" id="toggleIconConfirm"></i>
                         </span>
                     </div>
                     <div class="mb-3 form-check">
@@ -204,9 +225,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             console.log('Facebook Sign-Up clicked');
         }
 
-        function togglePassword() {
-            const passwordInput = document.getElementById('password');
-            const toggleIcon = document.getElementById('toggleIcon');
+        function togglePassword(inputId, toggleIconId) {
+            const passwordInput = document.getElementById(inputId);
+            const toggleIcon = document.getElementById(toggleIconId);
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
                 toggleIcon.classList.remove('fa-eye');
@@ -217,6 +238,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 toggleIcon.classList.add('fa-eye');
             }
         }
+
+        // Add client-side validation
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (password !== confirmPassword) {
+                e.preventDefault();
+                alert('Passwords do not match!');
+            }
+        });
 
         <?php if(isset($redirect) && $redirect): ?>
         setTimeout(function() {

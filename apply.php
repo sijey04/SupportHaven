@@ -97,13 +97,60 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             $techStmt->bindParam(":phone", $phone);
                             $techStmt->bindParam(":expertise", $expertise);
                             $techStmt->bindParam(":experience", $experience);
-                            $techStmt->bindParam(":photo", $fileName);
+                            $photoPath = "uploads/" . $fileName;
+                            $techStmt->bindParam(":photo", $photoPath);
                             
                             $techStmt->execute();
 
+                            $technicianId = $db->lastInsertId();
+
+                            // Handle document uploads
+                            $uploadDir = "uploads/documents/";
+                            if (!file_exists($uploadDir)) {
+                                mkdir($uploadDir, 0777, true);
+                            }
+
+                            // Handle ID document
+                            if (isset($_FILES['id_document']) && $_FILES['id_document']['error'] === UPLOAD_ERR_OK) {
+                                $idFileName = 'ID_' . time() . '_' . basename($_FILES['id_document']['name']);
+                                $idTargetPath = $uploadDir . $idFileName;
+                                
+                                if (move_uploaded_file($_FILES['id_document']['tmp_name'], $idTargetPath)) {
+                                    $docQuery = "INSERT INTO technician_documents (technician_id, document_type, file_name) 
+                                                VALUES (:tech_id, 'id', :file_name)";
+                                    $docStmt = $db->prepare($docQuery);
+                                    $docStmt->execute([
+                                        ':tech_id' => $technicianId,
+                                        ':file_name' => $idFileName
+                                    ]);
+                                }
+                            }
+
+                            // Handle certification documents
+                            if (isset($_FILES['certifications'])) {
+                                foreach ($_FILES['certifications']['tmp_name'] as $key => $tmp_name) {
+                                    if ($_FILES['certifications']['error'][$key] === UPLOAD_ERR_OK) {
+                                        $certFileName = 'CERT_' . time() . '_' . basename($_FILES['certifications']['name'][$key]);
+                                        $certTargetPath = $uploadDir . $certFileName;
+                                        
+                                        if (move_uploaded_file($tmp_name, $certTargetPath)) {
+                                            $docQuery = "INSERT INTO technician_documents (technician_id, document_type, file_name) 
+                                                        VALUES (:tech_id, 'certification', :file_name)";
+                                            $docStmt = $db->prepare($docQuery);
+                                            $docStmt->execute([
+                                                ':tech_id' => $technicianId,
+                                                ':file_name' => $certFileName
+                                            ]);
+                                        }
+                                    }
+                                }
+                            }
+
                             // Commit the transaction
                             $db->commit();
-                            $successMessage = "Your application has been submitted successfully!";
+                            $_SESSION['application_submitted'] = true;
+                            header('Location: application-pending.php');
+                            exit();
                         } catch (PDOException $e) {
                             // Rollback the transaction on error
                             $db->rollBack();
@@ -131,6 +178,83 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>Apply as Technician - SupportHaven</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        /* New Progress Bar Styles */
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            position: relative;
+            padding: 0 1rem;
+        }
+
+        .progress-line {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 2px;
+            background: #e5e7eb;
+            width: 100%;
+            z-index: 1;
+        }
+
+        .progress-line-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: #4f46e5;
+            transition: width 0.3s ease;
+        }
+
+        .step {
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            width: 120px;
+        }
+
+        .step-circle {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .step.active .step-circle {
+            border-color: #4f46e5;
+            color: #4f46e5;
+        }
+
+        .step.completed .step-circle {
+            background: #4f46e5;
+            border-color: #4f46e5;
+            color: white;
+        }
+
+        .step-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .step.active .step-label {
+            color: #4f46e5;
+        }
+
+        .step.completed .step-label {
+            color: #4f46e5;
+        }
+    </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
     <!-- Header -->
@@ -164,29 +288,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <?php endif; ?>
 
             <!-- Progress Bar -->
-            <div class="mb-12">
-                <div class="relative">
-                    <div class="h-1 bg-gray-200 rounded-full">
-                        <div class="h-1 bg-indigo-600 rounded-full transition-all duration-300" id="applicationProgress"></div>
-                    </div>
-                    <div class="flex justify-between mt-4">
-                        <div class="step active" data-step="1">
-                            <div class="w-10 h-10 bg-white border-2 border-indigo-600 rounded-full flex items-center justify-center text-indigo-600 font-semibold mx-auto">1</div>
-                            <div class="text-sm font-medium text-gray-600 mt-2">Personal Info</div>
-                        </div>
-                        <div class="step" data-step="2">
-                            <div class="w-10 h-10 bg-white border-2 border-gray-300 rounded-full flex items-center justify-center text-gray-500 font-semibold mx-auto">2</div>
-                            <div class="text-sm font-medium text-gray-600 mt-2">Professional</div>
-                        </div>
-                        <div class="step" data-step="3">
-                            <div class="w-10 h-10 bg-white border-2 border-gray-300 rounded-full flex items-center justify-center text-gray-500 font-semibold mx-auto">3</div>
-                            <div class="text-sm font-medium text-gray-600 mt-2">Account</div>
-                        </div>
-                        <div class="step" data-step="4">
-                            <div class="w-10 h-10 bg-white border-2 border-gray-300 rounded-full flex items-center justify-center text-gray-500 font-semibold mx-auto">4</div>
-                            <div class="text-sm font-medium text-gray-600 mt-2">Review</div>
-                        </div>
-                    </div>
+            <div class="progress-steps">
+                <div class="progress-line">
+                    <div id="progressLineFill" class="progress-line-fill" style="width: 0%"></div>
+                </div>
+                <div class="step active">
+                    <div class="step-circle">1</div>
+                    <span class="step-label">Personal Info</span>
+                </div>
+                <div class="step">
+                    <div class="step-circle">2</div>
+                    <span class="step-label">Professional</span>
+                </div>
+                <div class="step">
+                    <div class="step-circle">3</div>
+                    <span class="step-label">Account</span>
+                </div>
+                <div class="step">
+                    <div class="step-circle">4</div>
+                    <span class="step-label">Review</span>
                 </div>
             </div>
 
@@ -236,6 +356,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 <option value="Computer Repair">Computer Repair</option>
                                 <option value="Network Setup">Network Setup</option>
                                 <option value="Software Installation">Software Installation</option>
+                                <option value="All of the Above">All of the Above</option>
                             </select>
                         </div>
                         <div>
@@ -259,14 +380,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             </div>
                             <div id="file-chosen" class="mt-2 text-sm text-gray-500"></div>
                         </div>
-                    </div>
-                    <div class="flex justify-between mt-6 pt-6 border-t">
+                        <!-- Required Documents Section -->
+                        <div class="space-y-4 mt-6">
+                            <h3 class="text-lg font-semibold text-gray-800">Required Documents</h3>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Valid ID (Government-issued)</label>
+                                <input type="file" name="id_document" accept=".pdf,.jpg,.jpeg,.png" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                                <p class="mt-1 text-sm text-gray-500">Upload a clear copy of your valid government ID (e.g., Driver's License, Passport, SSS ID)</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Technical Certifications</label>
+                                <input type="file" name="certifications[]" accept=".pdf,.jpg,.jpeg,.png" multiple 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <p class="mt-1 text-sm text-gray-500">Upload any relevant technical certifications (CompTIA, Cisco, etc.)</p>
+                            </div>
+                        </div>
+                        <div class="flex justify-between mt-6 pt-6 border-t">
                         <button type="button" class="prev-step bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition duration-200">
                             Previous
                         </button>
                         <button type="button" class="next-step bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
                             Next Step
                         </button>
+                    </div>
                     </div>
                 </div>
 
@@ -313,72 +451,67 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
 
             </form>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Add your existing JavaScript with minor adjustments for the new classes -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('applicationForm');
-        const steps = document.querySelectorAll('.step-content');
+        const steps = document.querySelectorAll('.step');
+        const stepContents = document.querySelectorAll('.step-content');
+        const nextButtons = document.querySelectorAll('.next-step');
+        const prevButtons = document.querySelectorAll('.prev-step');
         const progressBar = document.getElementById('applicationProgress');
-        const stepIndicators = document.querySelectorAll('.step');
         let currentStep = 1;
 
-        // Update progress bar and step indicators
-        function updateProgress() {
-            const progress = ((currentStep - 1) / (steps.length - 1)) * 100;
-            progressBar.style.width = `${progress}%`;
+        function showStep(stepNumber) {
+            // Update progress line
+            const progress = ((stepNumber - 1) / (steps.length - 1)) * 100;
+            document.getElementById('progressLineFill').style.width = `${progress}%`;
             
-            // Update step indicators
-            stepIndicators.forEach((step, index) => {
-                const stepNum = index + 1;
-                if (stepNum < currentStep) {
-                    step.classList.add('completed');
-                    step.querySelector('div:first-child').classList.replace('border-gray-300', 'border-indigo-600');
-                    step.querySelector('div:first-child').classList.replace('text-gray-500', 'text-indigo-600');
-                } else if (stepNum === currentStep) {
+            steps.forEach((step, index) => {
+                if (index + 1 === stepNumber) {
                     step.classList.add('active');
-                    step.querySelector('div:first-child').classList.replace('border-gray-300', 'border-indigo-600');
-                    step.querySelector('div:first-child').classList.replace('text-gray-500', 'text-indigo-600');
+                } else if (index + 1 < stepNumber) {
+                    step.classList.add('completed');
                 } else {
-                    step.classList.remove('completed', 'active');
-                    step.querySelector('div:first-child').classList.replace('border-indigo-600', 'border-gray-300');
-                    step.querySelector('div:first-child').classList.replace('text-indigo-600', 'text-gray-500');
+                    step.classList.remove('active', 'completed');
                 }
             });
-        }
 
-        // Show specific step
-        function showStep(stepNumber) {
-            steps.forEach((step, index) => {
-                step.classList.add('hidden');
+            stepContents.forEach((content, index) => {
+                if (index + 1 === stepNumber) {
+                    content.classList.remove('hidden');
+                } else {
+                    content.classList.add('hidden');
+                }
             });
-            document.getElementById(`step${stepNumber}`).classList.remove('hidden');
-            currentStep = stepNumber;
-            updateProgress();
 
-            // Add this condition to update review info when showing step 4
+            // Update review information when reaching step 4
             if (stepNumber === 4) {
                 updateReviewInfo();
             }
         }
 
-        // Next button click handlers
-        document.querySelectorAll('.next-step').forEach(button => {
+        nextButtons.forEach(button => {
             button.addEventListener('click', function() {
-                // Add validation here if needed
-                if (currentStep < steps.length) {
-                    showStep(currentStep + 1);
+                if (currentStep < 4) {
+                    currentStep++;
+                    showStep(currentStep);
+                    if (currentStep === 4) {
+                        updateReviewInfo();
+                    }
                 }
             });
         });
 
-        // Previous button click handlers
-        document.querySelectorAll('.prev-step').forEach(button => {
+        prevButtons.forEach(button => {
             button.addEventListener('click', function() {
                 if (currentStep > 1) {
-                    showStep(currentStep - 1);
+                    currentStep--;
+                    showStep(currentStep);
                 }
             });
         });
@@ -401,6 +534,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Add this new function to populate review info
         function updateReviewInfo() {
             const reviewInfo = document.getElementById('reviewInfo');
+            // Make sure all form elements exist before accessing their values
+            if (!reviewInfo) return;
+
             reviewInfo.innerHTML = `
                 <div class="space-y-4">
                     <div class="bg-gray-50 p-4 rounded-lg">
@@ -408,19 +544,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <p class="text-sm text-gray-600">First Name</p>
-                                <p class="font-medium">${document.getElementById('firstName').value}</p>
+                                <p class="font-medium">${document.getElementById('firstName')?.value || ''}</p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-600">Last Name</p>
-                                <p class="font-medium">${document.getElementById('lastName').value}</p>
+                                <p class="font-medium">${document.getElementById('lastName')?.value || ''}</p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-600">Email</p>
-                                <p class="font-medium">${document.getElementById('email').value}</p>
+                                <p class="font-medium">${document.getElementById('email')?.value || ''}</p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-600">Phone</p>
-                                <p class="font-medium">${document.getElementById('phone').value}</p>
+                                <p class="font-medium">${document.getElementById('phone')?.value || ''}</p>
                             </div>
                         </div>
                     </div>
@@ -430,15 +566,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <p class="text-sm text-gray-600">Area of Expertise</p>
-                                <p class="font-medium">${document.getElementById('expertise').value}</p>
+                                <p class="font-medium">${document.getElementById('expertise')?.value || ''}</p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-600">Years of Experience</p>
-                                <p class="font-medium">${document.getElementById('experience').value} years</p>
+                                <p class="font-medium">${document.getElementById('experience')?.value || ''} years</p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-600">Profile Photo</p>
-                                <p class="font-medium">${document.getElementById('photo').files[0]?.name || 'No file selected'}</p>
+                                <p class="font-medium">${document.getElementById('photo')?.files[0]?.name || 'No file selected'}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Government ID</p>
+                                <p class="font-medium">${document.getElementById('id_document')?.files[0]?.name || 'No file selected'}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Technical Certifications</p>
+                                <p class="font-medium">${Array.from(document.getElementById('certifications')?.files || []).map(file => file.name).join(', ') || 'No files selected'}</p>
                             </div>
                         </div>
                     </div>

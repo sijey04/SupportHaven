@@ -8,8 +8,23 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'technician') {
     exit();
 }
 
+// Check if technician is approved
 $database = new Connection();
 $db = $database->getConnection();
+
+$techQuery = "SELECT status FROM technicians WHERE user_id = :user_id";
+$techStmt = $db->prepare($techQuery);
+$techStmt->bindParam(":user_id", $_SESSION['user_id']);
+$techStmt->execute();
+$techStatus = $techStmt->fetchColumn();
+
+if ($techStatus !== 'approved') {
+    // Clear the session
+    session_destroy();
+    // Redirect to login with message
+    header("Location: login.php?error=pending_approval");
+    exit();
+}
 
 $technicianId = $_SESSION['user_id'];
 
